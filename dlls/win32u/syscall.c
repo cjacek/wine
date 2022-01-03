@@ -32,6 +32,42 @@
 #include "ntuser.h"
 #include "wine/unixlib.h"
 
+WINE_DEFAULT_DEBUG_CHANNEL(win32u);
+
+
+const volatile struct user_session_info *session_info = NULL;
+const volatile USER_HANDLE_ENTRY *user_handles;
+
+void session_init(void)
+{
+    UNICODE_STRING name_str;
+    OBJECT_ATTRIBUTES attr = { sizeof(attr), 0, &name_str };
+    NTSTATUS status;
+    HANDLE section;
+    SIZE_T size;
+
+    static const WCHAR nameW[] = {'\\','K','e','r','n','e','l','O','b','j','e','c','t','s',
+        '\\','_','_','w','i','n','e','_','s','e','s','s','i','o','n','_','s','h','a','r','e','d',
+        '_','d','a','t','a'};
+
+    name_str.Buffer = (WCHAR *)nameW;
+    name_str.Length = name_str.MaximumLength = sizeof(nameW);
+    if ((status = NtOpenSection( &section, SECTION_ALL_ACCESS, &attr )))
+    {
+        ERR( "failed to open the session section: %08x\n", status );
+        return;
+    }
+
+    size = 0;
+    if ((status = NtMapViewOfSection( section, GetCurrentProcess(), (void **)&session_info, 0, 0,
+                                      NULL, &size, ViewShare, 0, PAGE_READONLY )))
+    {
+        ERR( "failed to map view of section\n" );
+        return;
+    }
+    NtClose( section );
+    user_handles = (const volatile void *)(session_info + 1);
+}
 
 static void * const syscalls[] =
 {
@@ -155,6 +191,7 @@ static NTSTATUS init( void *dispatcher )
 {
     NTSTATUS status;
     if ((status = ntdll_init_syscalls( 1, &syscall_table, dispatcher ))) return status;
+    session_init();
     if ((status = gdi_init())) return status;
     winstation_init();
     sysparams_init();
@@ -168,8 +205,6 @@ unixlib_entry_t __wine_unix_call_funcs[] =
 };
 
 #ifdef _WIN64
-
-WINE_DEFAULT_DEBUG_CHANNEL(win32u);
 
 static NTSTATUS wow64_init( void *args )
 {

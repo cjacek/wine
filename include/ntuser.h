@@ -52,6 +52,7 @@ struct enum_display_monitor_params
 /* NtUserCallOneParam codes, not compatible with Windows */
 enum
 {
+    NtUserGetSharedInfo,
     NtUserGetSysColor,
     NtUserGetSysColorBrush,
     NtUserGetSysColorPen,
@@ -72,6 +73,26 @@ enum
 /* color index used to retrieve system 55aa brush */
 #define COLOR_55AA_BRUSH  0x100
 
+/* handle entry in shared handle table, layout similar to Windows */
+typedef struct
+{
+    UINT64  object;
+    ULONG   tid;
+    ULONG   pid;
+    UINT64  client_ptr;
+    union
+    {
+        struct
+        {
+            BYTE    type;
+            BYTE    flags;
+            WORD    generation;
+        };
+        ULONG uniq;
+    };
+    ULONG shared_offset;
+} USER_HANDLE_ENTRY;
+
 /* shared session info, partially compatible with native */
 struct user_session_info
 {
@@ -79,6 +100,14 @@ struct user_session_info
     ULONG nb_handles;
     ULONG unk2[5];
 };
+
+/* struct exposed by gSharedInfo */
+typedef struct
+{
+    UINT64   session_info;
+    UINT64   handles;
+    UINT64   unk[6];
+} USER_SHARED_INFO;
 
 /* this is the structure stored in TEB->Win32ClientInfo */
 /* no attempt is made to keep the layout compatible with the Windows one */

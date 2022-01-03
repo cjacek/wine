@@ -240,6 +240,11 @@ struct unix_funcs
                                       struct window_surface *surface );
 };
 
+/* syscall.c */
+extern const volatile struct user_session_info *session_info DECLSPEC_HIDDEN;
+extern const volatile USER_HANDLE_ENTRY *user_handles DECLSPEC_HIDDEN;
+
+/* sysparams.c */
 extern RECT get_display_rect( const WCHAR *display ) DECLSPEC_HIDDEN;
 extern UINT get_system_dpi(void) DECLSPEC_HIDDEN;
 extern int get_system_metrics( int index ) DECLSPEC_HIDDEN;

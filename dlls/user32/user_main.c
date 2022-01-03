@@ -215,12 +215,15 @@ static const void *kernel_callback_table[NtUserCallCount] =
 };
 
 
+USER_SHARED_INFO gSharedInfo;
+
 /***********************************************************************
  *           USER initialisation routine
  */
 static BOOL process_attach(void)
 {
     NtCurrentTeb()->Peb->KernelCallbackTable = kernel_callback_table;
+    NtUserCallOneParam( (UINT_PTR)&gSharedInfo, NtUserGetSharedInfo );
 
     dpiaware_init();
     register_desktop_class();

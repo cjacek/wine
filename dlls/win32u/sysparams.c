@@ -4389,6 +4389,14 @@ ULONG WINAPI NtUserGetProcessDpiAwarenessContext( HANDLE process )
     return dpi_awareness;
 }
 
+static NTSTATUS get_shared_info( USER_SHARED_INFO *info )
+{
+    memset( info, 0, sizeof(*info) );
+    info->session_info = (UINT_PTR)session_info;
+    info->handles      = (UINT_PTR)user_handles;
+    return STATUS_SUCCESS;
+}
+
 /***********************************************************************
  *	     NtUserCallOneParam    (win32u.@)
  */
@@ -4396,6 +4404,8 @@ ULONG_PTR WINAPI NtUserCallOneParam( ULONG_PTR arg, ULONG code )
 {
     switch(code)
     {
+    case NtUserGetSharedInfo:
+        return get_shared_info( (USER_SHARED_INFO *)arg );
     case NtUserGetSysColor:
         return get_sys_color( arg );
     case NtUserRealizePalette:

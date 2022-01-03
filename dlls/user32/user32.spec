@@ -1,3 +1,4 @@
+@ extern gSharedInfo
 @ stdcall ActivateKeyboardLayout(long long) NtUserActivateKeyboardLayout
 @ stdcall AddClipboardFormatListener(long) NtUserAddClipboardFormatListener
 @ stdcall AdjustWindowRect(ptr long long)
