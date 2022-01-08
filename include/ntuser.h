@@ -72,6 +72,14 @@ enum
 /* color index used to retrieve system 55aa brush */
 #define COLOR_55AA_BRUSH  0x100
 
+/* shared session info, partially compatible with native */
+struct user_session_info
+{
+    ULONG unk1[2];
+    ULONG nb_handles;
+    ULONG unk2[5];
+};
+
 /* this is the structure stored in TEB->Win32ClientInfo */
 /* no attempt is made to keep the layout compatible with the Windows one */
 struct user_thread_info

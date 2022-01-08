@@ -33,6 +33,7 @@ static struct user_handle *handles;
 static struct user_handle *freelist;
 static int nb_handles;
 static int allocated_handles;
+static struct user_session_info *session_info;
 
 static struct user_handle *handle_to_entry( user_handle_t handle )
 {
@@ -87,6 +88,12 @@ static inline void *free_user_entry( struct user_handle *ptr )
     ptr->type = 0;
     freelist  = ptr;
     return ret;
+}
+
+/* initialize session shared data */
+void init_session_shared_data( void *ptr )
+{
+    session_info = ptr;
 }
 
 /* allocate a user handle for a given object */

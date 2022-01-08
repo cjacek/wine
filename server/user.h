@@ -41,6 +41,8 @@ enum user_object
 
 #define DESKTOP_ATOM  ((atom_t)32769)
 
+#define SESSION_SHARED_DATA_SIZE 0x1000000
+
 struct winstation
 {
     struct object      obj;                /* object header */
@@ -88,6 +90,7 @@ extern user_handle_t get_user_full_handle( user_handle_t handle );
 extern void *free_user_handle( user_handle_t handle );
 extern void *next_user_handle( user_handle_t *handle, enum user_object type );
 extern void free_process_user_handles( struct process *process );
+extern void init_session_shared_data( void *ptr );
 
 /* clipboard functions */
 

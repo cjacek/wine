@@ -42,6 +42,7 @@
 #include "process.h"
 #include "request.h"
 #include "security.h"
+#include "user.h"
 
 /* list of memory ranges, used to store committed info */
 struct ranges
@@ -1111,6 +1112,20 @@ struct object *create_user_data_mapping( struct object *root, const struct unico
         user_shared_data = ptr;
         user_shared_data->SystemCall = 1;
     }
+    return &mapping->obj;
+}
+
+struct object *create_session_data_mapping( struct object *root, const struct unicode_str *name,
+                                            unsigned int attr, const struct security_descriptor *sd )
+{
+    void *ptr;
+    struct mapping *mapping;
+
+    if (!(mapping = create_mapping( root, name, attr, SESSION_SHARED_DATA_SIZE,
+                                    SEC_COMMIT, 0, FILE_READ_DATA | FILE_WRITE_DATA, sd ))) return NULL;
+
+    ptr = mmap( NULL, mapping->size, PROT_WRITE, MAP_SHARED, get_unix_fd( mapping->fd ), 0 );
+    if (ptr != MAP_FAILED) init_session_shared_data( ptr );
     return &mapping->obj;
 }
 
