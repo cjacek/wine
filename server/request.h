@@ -2168,6 +2168,7 @@ C_ASSERT( FIELD_OFFSET(struct set_window_layered_info_request, color_key) == 16 
 C_ASSERT( FIELD_OFFSET(struct set_window_layered_info_request, alpha) == 20 );
 C_ASSERT( FIELD_OFFSET(struct set_window_layered_info_request, flags) == 24 );
 C_ASSERT( sizeof(struct set_window_layered_info_request) == 32 );
+C_ASSERT( FIELD_OFFSET(struct alloc_user_handle_request, type) == 12 );
 C_ASSERT( sizeof(struct alloc_user_handle_request) == 16 );
 C_ASSERT( FIELD_OFFSET(struct alloc_user_handle_reply, handle) == 8 );
 C_ASSERT( sizeof(struct alloc_user_handle_reply) == 16 );

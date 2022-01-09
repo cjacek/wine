@@ -18,10 +18,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include "ntstatus.h"
+#define WIN32_NO_STATUS
 #include "thread.h"
 #include "user.h"
 #include "request.h"
-#include "ntuser.h"
 
 static USER_HANDLE_ENTRY *handles;
 static USER_HANDLE_ENTRY *freelist;
@@ -66,7 +67,7 @@ void init_session_shared_data( void *ptr )
 }
 
 /* allocate a user handle for a given object */
-user_handle_t alloc_user_handle( void *ptr, enum user_object type )
+user_handle_t alloc_user_handle( void *ptr, unsigned int type )
 {
     USER_HANDLE_ENTRY *handle;
     unsigned int generation;
@@ -93,7 +94,7 @@ user_handle_t alloc_user_handle( void *ptr, enum user_object type )
 }
 
 /* return a pointer to a user object from its handle */
-void *get_user_object( user_handle_t handle, enum user_object type )
+void *get_user_object( user_handle_t handle, unsigned int type )
 {
     USER_HANDLE_ENTRY *entry;
 
@@ -112,7 +113,7 @@ user_handle_t get_user_full_handle( user_handle_t handle )
 }
 
 /* same as get_user_object plus set the handle to the full 32-bit value */
-void *get_user_object_handle( user_handle_t *handle, enum user_object type )
+void *get_user_object_handle( user_handle_t *handle, unsigned int type )
 {
     USER_HANDLE_ENTRY *entry;
 
@@ -135,7 +136,7 @@ void *free_user_handle( user_handle_t handle )
 }
 
 /* return the next user handle after 'handle' that is of a given type */
-void *next_user_handle( user_handle_t *handle, enum user_object type )
+void *next_user_handle( user_handle_t *handle, unsigned int type )
 {
     unsigned int nb_handles = session_info->nb_handles;
     USER_HANDLE_ENTRY *entry;
@@ -159,20 +160,28 @@ void *next_user_handle( user_handle_t *handle, enum user_object type )
     return NULL;
 }
 
+static int is_client_type( unsigned int type )
+{
+    return type && type != NTUSER_OBJ_WINDOW && type != NTUSER_OBJ_HOOK;
+}
+
 /* free client-side user handles managed by the process */
 void free_process_user_handles( struct process *process )
 {
     unsigned int i, nb_handles = session_info->nb_handles;
 
     for (i = 0; i < nb_handles; i++)
-        if (handles[i].type == USER_CLIENT && get_entry_obj_ptr( &handles[i] ) == process)
+        if (is_client_type( handles[i].type ) && get_entry_obj_ptr( &handles[i] ) == process)
             free_user_entry( &handles[i] );
 }
 
 /* allocate an arbitrary user handle */
 DECL_HANDLER(alloc_user_handle)
 {
-    reply->handle = alloc_user_handle( current->process, USER_CLIENT );
+    if (is_client_type( req->type ))
+        reply->handle = alloc_user_handle( current->process, req->type );
+    else
+        set_error( STATUS_INVALID_PARAMETER );
 }
 
 
@@ -181,7 +190,7 @@ DECL_HANDLER(free_user_handle)
 {
     USER_HANDLE_ENTRY *entry;
 
-    if ((entry = handle_to_entry( req->handle )) && entry->type == USER_CLIENT)
+    if ((entry = handle_to_entry( req->handle )) && is_client_type( entry->type ))
         free_user_entry( entry );
     else
         set_error( STATUS_INVALID_HANDLE );

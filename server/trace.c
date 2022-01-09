@@ -4309,6 +4309,7 @@ static void dump_set_window_layered_info_request( const struct set_window_layere
 
 static void dump_alloc_user_handle_request( const struct alloc_user_handle_request *req )
 {
+    fprintf( stderr, " type=%08x", req->type );
 }
 
 static void dump_alloc_user_handle_reply( const struct alloc_user_handle_reply *req )

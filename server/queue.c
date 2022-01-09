@@ -2595,7 +2595,7 @@ DECL_HANDLER(get_message)
 
     reply->active_hooks = get_active_hooks();
 
-    if (get_win && get_win != 1 && get_win != -1 && !get_user_object( get_win, USER_WINDOW ))
+    if (get_win && get_win != 1 && get_win != -1 && !get_user_object( get_win, NTUSER_OBJ_WINDOW ))
     {
         set_win32_error( ERROR_INVALID_WINDOW_HANDLE );
         return;
@@ -3263,7 +3263,7 @@ DECL_HANDLER(set_cursor)
 
     if (req->flags & SET_CURSOR_HANDLE)
     {
-        if (req->handle && !get_user_object( req->handle, USER_CLIENT ))
+        if (req->handle && !get_user_object( req->handle, NTUSER_OBJ_ICON ))
         {
             set_win32_error( ERROR_INVALID_CURSOR_HANDLE );
             return;

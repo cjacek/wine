@@ -108,6 +108,7 @@ HANDLE alloc_user_handle( struct user_object *ptr, unsigned int type )
 
     SERVER_START_REQ( alloc_user_handle )
     {
+        req->type = type;
         if (!wine_server_call_err( req )) handle = wine_server_ptr_handle( reply->handle );
     }
     SERVER_END_REQ;

@@ -22,6 +22,7 @@
 #define __WINE_SERVER_USER_H
 
 #include "wine/server_protocol.h"
+#include "ntuser.h"
 
 struct thread;
 struct region;
@@ -31,13 +32,6 @@ struct hook_table;
 struct window_class;
 struct atom_table;
 struct clipboard;
-
-enum user_object
-{
-    USER_WINDOW = 1,
-    USER_HOOK,
-    USER_CLIENT  /* arbitrary client handle */
-};
 
 #define DESKTOP_ATOM  ((atom_t)32769)
 
@@ -83,12 +77,12 @@ struct desktop
 
 /* user handles functions */
 
-extern user_handle_t alloc_user_handle( void *ptr, enum user_object type );
-extern void *get_user_object( user_handle_t handle, enum user_object type );
-extern void *get_user_object_handle( user_handle_t *handle, enum user_object type );
+extern user_handle_t alloc_user_handle( void *ptr, unsigned int type );
+extern void *get_user_object( user_handle_t handle, unsigned int type );
+extern void *get_user_object_handle( user_handle_t *handle, unsigned int type );
 extern user_handle_t get_user_full_handle( user_handle_t handle );
 extern void *free_user_handle( user_handle_t handle );
-extern void *next_user_handle( user_handle_t *handle, enum user_object type );
+extern void *next_user_handle( user_handle_t *handle, unsigned int type );
 extern void free_process_user_handles( struct process *process );
 extern void init_session_shared_data( void *ptr );
 
@@ -249,7 +243,7 @@ static inline int intersect_rect( rectangle_t *dst, const rectangle_t *src1, con
 /* validate a window handle and return the full handle */
 static inline user_handle_t get_valid_window_handle( user_handle_t win )
 {
-    if (get_user_object_handle( &win, USER_WINDOW )) return win;
+    if (get_user_object_handle( &win, NTUSER_OBJ_WINDOW )) return win;
     set_win32_error( ERROR_INVALID_WINDOW_HANDLE );
     return 0;
 }

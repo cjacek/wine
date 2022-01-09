@@ -5154,7 +5154,7 @@ struct set_window_layered_info_reply
 struct alloc_user_handle_request
 {
     struct request_header __header;
-    char __pad_12[4];
+    unsigned int   type;
 };
 struct alloc_user_handle_reply
 {
@@ -6263,7 +6263,7 @@ union generic_reply
 
 /* ### protocol_version begin ### */
 
-#define SERVER_PROTOCOL_VERSION 742
+#define SERVER_PROTOCOL_VERSION 743
 
 /* ### protocol_version end ### */
 
