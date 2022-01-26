@@ -120,6 +120,7 @@ typedef struct
 struct window_shared
 {
     ULONG  style;           /* window style */
+    ULONG  ex_style;        /* window extended style */
 };
 
 /* this is the structure stored in TEB->Win32ClientInfo */
