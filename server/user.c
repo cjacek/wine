@@ -28,6 +28,16 @@
 static USER_HANDLE_ENTRY *handles;
 static USER_HANDLE_ENTRY *freelist;
 static struct user_session_info *session_info;
+static char *session_shared;
+
+struct shared_area
+{
+    struct list entry;
+    size_t offset;
+    size_t size;
+};
+
+struct list free_shared_areas = LIST_INIT( free_shared_areas );
 
 #define LAST_USER_HANDLE  0xffef  /* last possible value for low word of user handle */
 
@@ -61,12 +71,102 @@ static void *free_user_entry( USER_HANDLE_ENTRY *ptr )
     return ret;
 }
 
+void *alloc_session_shared( user_handle_t handle, size_t size )
+{
+    struct shared_area *iter;
+    size_t offset = 0, i;
+    ULONG *ret;
+
+    size = (size + 0xf) & ~0xf; /* round up */
+
+    LIST_FOR_EACH_ENTRY( iter, &free_shared_areas, struct shared_area, entry )
+    {
+        if (iter->size < size) continue;
+        offset = iter->offset;
+        if (size == iter->size)
+        {
+            list_remove( &iter->entry );
+            free( iter );
+        }
+        else
+        {
+            iter->offset += size;
+            iter->size -= size;
+        }
+        break;
+    }
+    if (!offset) return NULL;
+
+    ret = (ULONG *)(session_shared + offset);
+    for (i = 0; i < size / sizeof(*ret); i++)
+        atomic_store_ulong( &ret[i], 0 );
+    atomic_store_ulong( &handle_to_entry( handle )->shared_offset, offset );
+    return ret;
+}
+
+void free_session_shared( void *ptr, size_t size )
+{
+    size_t offset = (char *)ptr - (char *)session_info;
+    struct shared_area *iter, *next;
+
+    size = (size + 0xf) & ~0xf; /* round up */
+
+    LIST_FOR_EACH_ENTRY( iter, &free_shared_areas, struct shared_area, entry )
+    {
+        if (iter->offset + iter->size == offset)
+        {
+            struct list *next_entry = list_next( &free_shared_areas, &iter->entry );
+            if (next_entry)
+            {
+                next = LIST_ENTRY( next_entry, struct shared_area, entry );
+                if (offset + size == next->offset)
+                {
+                    /* merge areas */
+                    list_remove( &next->entry );
+                    iter->size += size + next->size;
+                    free( next );
+                    break;
+                }
+            }
+            iter->size += size;
+            break;
+        }
+        if (iter->offset == offset + size)
+        {
+            iter->offset -= size;
+            iter->size   += size;
+            break;
+        }
+        if (iter->offset > offset + size)
+        {
+            if ((next = malloc( sizeof(*next ))))
+            {
+                next->offset = offset;
+                next->size   = size;
+                list_add_before( &iter->entry, &next->entry );
+            }
+            break;
+        }
+    }
+}
+
 /* initialize session shared data */
 void init_session_shared_data( void *ptr )
 {
+    struct shared_area *shared_area;
+
+    session_shared = ptr;
     session_info = ptr;
     handles = (void *)(session_info + 1);
     atomic_store_ulong( &session_info->nb_handles, 0x20 ); /* reserve some handles values */
+
+    if ((shared_area = malloc( sizeof(*shared_area) )))
+    {
+        unsigned int used_size = sizeof(*session_info) + (LAST_USER_HANDLE + 1) * sizeof(*handles);
+        shared_area->offset = used_size;
+        shared_area->size = SESSION_SHARED_DATA_SIZE - used_size;
+        list_add_tail( &free_shared_areas, &shared_area->entry );
+    }
 }
 
 /* allocate a user handle for a given object */

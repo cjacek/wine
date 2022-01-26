@@ -85,6 +85,8 @@ extern void *free_user_handle( user_handle_t handle );
 extern void *next_user_handle( user_handle_t *handle, unsigned int type );
 extern void free_process_user_handles( struct process *process );
 extern void init_session_shared_data( void *ptr );
+extern void *alloc_session_shared( user_handle_t handle, size_t size );
+extern void free_session_shared( void *ptr, size_t size );
 
 /* clipboard functions */
 

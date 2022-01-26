@@ -116,6 +116,12 @@ typedef struct
     UINT64   unk[6];
 } USER_SHARED_INFO;
 
+/* shared window data, not compatible with native */
+struct window_shared
+{
+    ULONG  style;           /* window style */
+};
+
 /* this is the structure stored in TEB->Win32ClientInfo */
 /* no attempt is made to keep the layout compatible with the Windows one */
 struct user_thread_info
