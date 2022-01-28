@@ -73,7 +73,6 @@ struct window
     rectangle_t      client_rect;     /* client rectangle (relative to parent client area) */
     struct region   *win_region;      /* region for shaped windows (relative to window rect) */
     struct region   *update_region;   /* update region (relative to window rect) */
-    mod_handle_t     instance;        /* creator instance */
     unsigned int     is_unicode : 1;  /* ANSI or unicode */
     unsigned int     is_linked : 1;   /* is it linked into the parent z-order list? */
     unsigned int     is_layered : 1;  /* has layered info been set? */
@@ -563,7 +562,6 @@ static struct window *create_window( struct window *parent, struct window *owner
     win->last_active    = win->handle;
     win->win_region     = NULL;
     win->update_region  = NULL;
-    win->instance       = 0;
     win->is_unicode     = 1;
     win->is_linked      = 0;
     win->is_layered     = 0;
@@ -2238,7 +2236,7 @@ DECL_HANDLER(set_window_info)
     reply->old_style     = win->shared->style;
     reply->old_ex_style  = win->shared->ex_style;
     reply->old_id        = win->shared->id;
-    reply->old_instance  = win->instance;
+    reply->old_instance  = win->shared->instance;
     reply->old_user_data = win->shared->user_data;
     if (req->flags & SET_WIN_STYLE) atomic_store_ulong( &win->shared->style, req->style );
     if (req->flags & SET_WIN_EXSTYLE)
@@ -2253,7 +2251,8 @@ DECL_HANDLER(set_window_info)
     }
     if (req->flags & SET_WIN_ID)
         atomic_store_ptr( &win->shared->id, req->extra_value );
-    if (req->flags & SET_WIN_INSTANCE) win->instance = req->instance;
+    if (req->flags & SET_WIN_INSTANCE)
+        atomic_store_ptr( &win->shared->instance, req->instance );
     if (req->flags & SET_WIN_UNICODE) win->is_unicode = req->is_unicode;
     if (req->flags & SET_WIN_USERDATA)
         atomic_store_ptr( &win->shared->user_data, req->user_data );

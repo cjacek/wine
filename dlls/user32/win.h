@@ -43,7 +43,6 @@ typedef struct tagWND
     struct dce    *dce;           /* DCE pointer */
     WNDPROC        winproc;       /* Window procedure */
     DWORD          tid;           /* Owner thread id */
-    HINSTANCE      hInstance;     /* Window hInstance (from CreateWindow) */
     RECT           client_rect;   /* Client area rel. to parent client area */
     RECT           window_rect;   /* Whole window rel. to parent client area */
     RECT           visible_rect;  /* Visible part of the whole rect, rel. to parent client area */

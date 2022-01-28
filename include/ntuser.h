@@ -123,6 +123,7 @@ struct window_shared
     ULONG  ex_style;        /* window extended style */
     UINT64 user_data;       /* user-specific data */
     UINT64 id;              /* window id */
+    UINT64 instance;        /* creator instance */
 };
 
 /* this is the structure stored in TEB->Win32ClientInfo */

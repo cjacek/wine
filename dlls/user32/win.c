@@ -1651,7 +1651,6 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
     /* Fill the window structure */
 
     wndPtr->tid            = GetCurrentThreadId();
-    wndPtr->hInstance      = cs->hInstance;
     wndPtr->text           = NULL;
     wndPtr->helpContext    = 0;
     wndPtr->pScroll        = NULL;
@@ -1700,7 +1699,7 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
         req->flags     = SET_WIN_STYLE | SET_WIN_EXSTYLE | SET_WIN_INSTANCE | SET_WIN_UNICODE;
         req->style     = style;
         req->ex_style  = ex_style;
-        req->instance  = wine_server_client_ptr( wndPtr->hInstance );
+        req->instance  = wine_server_client_ptr( cs->hInstance );
         req->is_unicode = (wndPtr->flags & WIN_ISUNICODE) != 0;
         req->extra_offset = -1;
         wine_server_call( req );
@@ -2549,7 +2548,7 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
     case GWL_STYLE:      retvalue = wndPtr->shared->style; break;
     case GWL_EXSTYLE:    retvalue = wndPtr->shared->ex_style; break;
     case GWLP_ID:        retvalue = wndPtr->shared->id; break;
-    case GWLP_HINSTANCE: retvalue = (ULONG_PTR)wndPtr->hInstance; break;
+    case GWLP_HINSTANCE: retvalue = wndPtr->shared->instance; break;
     case GWLP_WNDPROC:
         /* This looks like a hack only for the edit control (see tests). This makes these controls
          * more tolerant to A/W mismatches. The lack of W->A->W conversion for such a mismatch suggests
@@ -2755,7 +2754,6 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
                 retval = reply->old_id;
                 break;
             case GWLP_HINSTANCE:
-                wndPtr->hInstance = (HINSTANCE)newval;
                 retval = (ULONG_PTR)wine_server_get_ptr( reply->old_instance );
                 break;
             case GWLP_WNDPROC:
@@ -3948,7 +3946,7 @@ UINT WINAPI GetWindowModuleFileNameA( HWND hwnd, LPSTR module, UINT size )
         SetLastError( ERROR_INVALID_WINDOW_HANDLE );
         return 0;
     }
-    hinst = win->hInstance;
+    hinst = (HINSTANCE)(UINT_PTR)win->shared->instance;
     WIN_ReleasePtr( win );
 
     return GetModuleFileNameA( hinst, module, size );
@@ -3970,7 +3968,7 @@ UINT WINAPI GetWindowModuleFileNameW( HWND hwnd, LPWSTR module, UINT size )
         SetLastError( ERROR_INVALID_WINDOW_HANDLE );
         return 0;
     }
-    hinst = win->hInstance;
+    hinst = (HINSTANCE)(UINT_PTR)win->shared->instance;
     WIN_ReleasePtr( win );
 
     return GetModuleFileNameW( hinst, module, size );
