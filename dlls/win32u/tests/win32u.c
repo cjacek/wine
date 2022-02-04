@@ -180,6 +180,66 @@ static void test_NtUserBuildHwndList(void)
     DestroyWindow( hwnd );
 }
 
+static void CALLBACK win_event_proc(HWINEVENTHOOK hevent, DWORD event, HWND hwnd, LONG object_id,
+                                    LONG child_id, DWORD thread_id, DWORD event_time)
+{
+}
+
+static const USER_HANDLE_ENTRY *get_handle_entry( USER_SHARED_INFO *shared_info, HANDLE handle,
+                                                  unsigned int type )
+{
+    struct user_session_info *session_info = (void *)shared_info->session_info;
+    unsigned int index = LOWORD(handle);
+    const USER_HANDLE_ENTRY *entry;
+
+    todo_wine
+    ok( index <= session_info->nb_handles, "index > nb_handles\n" );
+    entry = (const USER_HANDLE_ENTRY *)shared_info->handles + index;
+    todo_wine
+    ok( entry->type == type, "bType = %x, expected %x\n", entry->type, type );
+    todo_wine
+    ok( entry->generation == HIWORD(handle), "bUniq = %x, expectex %x\n", entry->generation, HIWORD(handle) );
+    todo_wine
+    ok( entry->tid == GetCurrentThreadId(), "pid = %x\n", entry->pid );
+    return entry;
+}
+
+static void test_shared_info(void)
+{
+    MEMORY_BASIC_INFORMATION info;
+    HWINEVENTHOOK hook;
+    USER_SHARED_INFO *shared_info;
+    const USER_HANDLE_ENTRY *entry;
+    SIZE_T size;
+    HWND hwnd;
+
+    shared_info = (void *)GetProcAddress( GetModuleHandleW( L"user32.dll" ), "gSharedInfo" );
+    ok(!!shared_info, "shared_info not found\n");
+
+    size = VirtualQuery( (void *)shared_info->session_info, &info, sizeof(info) );
+    ok( size == sizeof(info), "VirtualQuery returned %lu\n", size );
+    ok( info.AllocationProtect == PAGE_READONLY, "AllocationProtect = %x\n", info.AllocationProtect );
+
+    size = VirtualQuery( (void *)shared_info->handles, &info, sizeof(info) );
+    ok( size == sizeof(info), "VirtualQuery returned %Iu\n", size );
+    ok( info.AllocationProtect == PAGE_READONLY, "AllocationProtect = %x\n", info.AllocationProtect );
+
+    hwnd = CreateWindowExA( 0, "static", NULL, WS_POPUP, 0,0,0,0,0,0,0, NULL );
+
+    entry = get_handle_entry( shared_info, hwnd, NTUSER_OBJ_WINDOW );
+    DestroyWindow( hwnd );
+    ok( !entry->type, "type = %x\n", entry->type );
+
+    hook = SetWinEventHook( 0, 0, 0, win_event_proc, GetCurrentProcessId(), 0, WINEVENT_OUTOFCONTEXT );
+    entry = get_handle_entry( shared_info, hook, NTUSER_OBJ_HOOK );
+    UnhookWinEvent( hook );
+    ok( !entry->type, "type = %x\n", entry->type );
+
+    /* the first entry is never used as a valid handle */
+    entry = (const USER_HANDLE_ENTRY *)shared_info->handles;
+    ok(!entry->type, "type = %x\n", entry->type);
+}
+
 START_TEST(win32u)
 {
     /* native win32u.dll fails if user32 is not loaded, so make sure it's fully initialized */
@@ -188,6 +248,6 @@ START_TEST(win32u)
     test_NtUserEnumDisplayDevices();
     test_window_props();
     test_NtUserBuildHwndList();
-
+    test_shared_info();
     test_NtUserCloseWindowStation();
 }

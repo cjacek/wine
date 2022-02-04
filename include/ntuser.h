@@ -101,6 +101,13 @@ struct user_session_info
     ULONG unk2[5];
 };
 
+#define NTUSER_OBJ_WINDOW   0x01
+#define NTUSER_OBJ_MENU     0x02
+#define NTUSER_OBJ_ICON     0x03
+#define NTUSER_OBJ_WINPOS   0x04
+#define NTUSER_OBJ_ACCEL    0x08
+#define NTUSER_OBJ_HOOK     0x0f
+
 /* struct exposed by gSharedInfo */
 typedef struct
 {
