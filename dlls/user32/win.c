@@ -125,6 +125,18 @@ HANDLE alloc_user_handle( struct user_object *ptr, unsigned int type )
     return handle;
 }
 
+static BOOL is_valid_entry( const volatile USER_HANDLE_ENTRY *entry, HANDLE handle, unsigned int type )
+{
+    if (!HIWORD(handle)) return entry->type == type;
+    return entry->uniq == (HIWORD(handle) << 16 | type);
+}
+
+static const volatile USER_HANDLE_ENTRY *get_user_handle_entry( HANDLE handle, unsigned int type )
+{
+    volatile USER_HANDLE_ENTRY *handles = (void *)(UINT_PTR)gSharedInfo.handles;
+    if (!is_valid_entry( &handles[LOWORD(handle)], handle, type )) return NULL;
+    return &handles[LOWORD(handle)];
+}
 
 /***********************************************************************
  *           get_user_handle_ptr
@@ -3184,37 +3196,25 @@ BOOL WINAPI IsWindow( HWND hwnd )
 /***********************************************************************
  *		GetWindowThreadProcessId (USER32.@)
  */
-DWORD WINAPI GetWindowThreadProcessId( HWND hwnd, LPDWORD process )
+DWORD WINAPI GetWindowThreadProcessId( HWND hwnd, DWORD *process )
 {
-    WND *ptr;
-    DWORD tid = 0;
+    const volatile USER_HANDLE_ENTRY *entry;
+    DWORD tid, pid;
 
-    if (!(ptr = WIN_GetPtr( hwnd )))
+    if ((entry = get_user_handle_entry( hwnd, NTUSER_OBJ_WINDOW )))
     {
-        SetLastError( ERROR_INVALID_WINDOW_HANDLE);
+        pid = entry->pid;
+        tid = entry->tid;
+        /* check entry again to make sure that we didn't read a garbage */
+        entry = get_user_handle_entry( hwnd, NTUSER_OBJ_WINDOW );
+    }
+    if (!entry)
+    {
+        SetLastError( ERROR_INVALID_WINDOW_HANDLE );
         return 0;
     }
 
-    if (ptr != WND_OTHER_PROCESS && ptr != WND_DESKTOP)
-    {
-        /* got a valid window */
-        tid = ptr->tid;
-        if (process) *process = GetCurrentProcessId();
-        WIN_ReleasePtr( ptr );
-        return tid;
-    }
-
-    /* check other processes */
-    SERVER_START_REQ( get_window_info )
-    {
-        req->handle = wine_server_user_handle( hwnd );
-        if (!wine_server_call_err( req ))
-        {
-            tid = (DWORD)reply->tid;
-            if (process) *process = (DWORD)reply->pid;
-        }
-    }
-    SERVER_END_REQ;
+    if (process) *process = pid;
     return tid;
 }
 
