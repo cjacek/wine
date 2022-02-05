@@ -21,21 +21,15 @@
 #include "thread.h"
 #include "user.h"
 #include "request.h"
+#include "ntuser.h"
 
-struct user_handle
-{
-    void          *ptr;          /* pointer to object */
-    unsigned short type;         /* object type (0 if free) */
-    unsigned short generation;   /* generation counter */
-};
-
-static struct user_handle *handles;
-static struct user_handle *freelist;
+static USER_HANDLE_ENTRY *handles;
+static USER_HANDLE_ENTRY *freelist;
 static int nb_handles;
 static int allocated_handles;
 static struct user_session_info *session_info;
 
-static struct user_handle *handle_to_entry( user_handle_t handle )
+static USER_HANDLE_ENTRY *handle_to_entry( user_handle_t handle )
 {
     unsigned short generation;
     int index = ((handle & 0xffff) - FIRST_USER_HANDLE) >> 1;
@@ -47,25 +41,30 @@ static struct user_handle *handle_to_entry( user_handle_t handle )
     return NULL;
 }
 
-static inline user_handle_t entry_to_handle( struct user_handle *ptr )
+static inline user_handle_t entry_to_handle( USER_HANDLE_ENTRY *ptr )
 {
     unsigned int index = ptr - handles;
     return (index << 1) + FIRST_USER_HANDLE + (ptr->generation << 16);
 }
 
-static inline struct user_handle *alloc_user_entry(void)
+static void *get_entry_obj_ptr( USER_HANDLE_ENTRY *ptr )
 {
-    struct user_handle *handle;
+    return (void *)(UINT_PTR)ptr->object;
+}
+
+static inline USER_HANDLE_ENTRY *alloc_user_entry(void)
+{
+    USER_HANDLE_ENTRY *handle;
 
     if (freelist)
     {
         handle = freelist;
-        freelist = handle->ptr;
+        freelist = get_entry_obj_ptr( handle );
         return handle;
     }
     if (nb_handles >= allocated_handles)  /* need to grow the array */
     {
-        struct user_handle *new_handles;
+        USER_HANDLE_ENTRY *new_handles;
         /* grow array by 50% (but at minimum 32 entries) */
         int growth = max( 32, allocated_handles / 2 );
         int new_size = min( allocated_handles + growth, (LAST_USER_HANDLE-FIRST_USER_HANDLE+1) >> 1 );
@@ -80,11 +79,11 @@ static inline struct user_handle *alloc_user_entry(void)
     return handle;
 }
 
-static inline void *free_user_entry( struct user_handle *ptr )
+static inline void *free_user_entry( USER_HANDLE_ENTRY *ptr )
 {
     void *ret;
-    ret = ptr->ptr;
-    ptr->ptr  = freelist;
+    ret = get_entry_obj_ptr( ptr );
+    ptr->object = (UINT_PTR)freelist;
     ptr->type = 0;
     freelist  = ptr;
     return ret;
@@ -99,9 +98,9 @@ void init_session_shared_data( void *ptr )
 /* allocate a user handle for a given object */
 user_handle_t alloc_user_handle( void *ptr, enum user_object type )
 {
-    struct user_handle *entry = alloc_user_entry();
+    USER_HANDLE_ENTRY *entry = alloc_user_entry();
     if (!entry) return 0;
-    entry->ptr  = ptr;
+    entry->object = (UINT_PTR)ptr;
     entry->type = type;
     if (++entry->generation >= 0xffff) entry->generation = 1;
     return entry_to_handle( entry );
@@ -110,16 +109,16 @@ user_handle_t alloc_user_handle( void *ptr, enum user_object type )
 /* return a pointer to a user object from its handle */
 void *get_user_object( user_handle_t handle, enum user_object type )
 {
-    struct user_handle *entry;
+    USER_HANDLE_ENTRY *entry;
 
     if (!(entry = handle_to_entry( handle )) || entry->type != type) return NULL;
-    return entry->ptr;
+    return get_entry_obj_ptr( entry );
 }
 
 /* get the full handle for a possibly truncated handle */
 user_handle_t get_user_full_handle( user_handle_t handle )
 {
-    struct user_handle *entry;
+    USER_HANDLE_ENTRY *entry;
 
     if (handle >> 16) return handle;
     if (!(entry = handle_to_entry( handle ))) return handle;
@@ -129,17 +128,17 @@ user_handle_t get_user_full_handle( user_handle_t handle )
 /* same as get_user_object plus set the handle to the full 32-bit value */
 void *get_user_object_handle( user_handle_t *handle, enum user_object type )
 {
-    struct user_handle *entry;
+    USER_HANDLE_ENTRY *entry;
 
     if (!(entry = handle_to_entry( *handle )) || entry->type != type) return NULL;
     *handle = entry_to_handle( entry );
-    return entry->ptr;
+    return get_entry_obj_ptr( entry );
 }
 
 /* free a user handle and return a pointer to the object */
 void *free_user_handle( user_handle_t handle )
 {
-    struct user_handle *entry;
+    USER_HANDLE_ENTRY *entry;
 
     if (!(entry = handle_to_entry( handle )))
     {
@@ -152,7 +151,7 @@ void *free_user_handle( user_handle_t handle )
 /* return the next user handle after 'handle' that is of a given type */
 void *next_user_handle( user_handle_t *handle, enum user_object type )
 {
-    struct user_handle *entry;
+    USER_HANDLE_ENTRY *entry;
 
     if (!*handle) entry = handles;
     else
@@ -166,7 +165,7 @@ void *next_user_handle( user_handle_t *handle, enum user_object type )
         if (!type || entry->type == type)
         {
             *handle = entry_to_handle( entry );
-            return entry->ptr;
+            return get_entry_obj_ptr( entry );
         }
         entry++;
     }
@@ -179,7 +178,7 @@ void free_process_user_handles( struct process *process )
     unsigned int i;
 
     for (i = 0; i < nb_handles; i++)
-        if (handles[i].type == USER_CLIENT && handles[i].ptr == process)
+        if (handles[i].type == USER_CLIENT && get_entry_obj_ptr( &handles[i] ) == process)
             free_user_entry( &handles[i] );
 }
 
@@ -193,7 +192,7 @@ DECL_HANDLER(alloc_user_handle)
 /* free an arbitrary user handle */
 DECL_HANDLER(free_user_handle)
 {
-    struct user_handle *entry;
+    USER_HANDLE_ENTRY *entry;
 
     if ((entry = handle_to_entry( req->handle )) && entry->type == USER_CLIENT)
         free_user_entry( entry );
