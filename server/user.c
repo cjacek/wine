@@ -52,7 +52,7 @@ static void *get_entry_obj_ptr( USER_HANDLE_ENTRY *ptr )
 static void *free_user_entry( USER_HANDLE_ENTRY *ptr )
 {
     void *ret = get_entry_obj_ptr( ptr );
-    ptr->uniq = ptr->generation << 16;
+    atomic_store_ulong( &ptr->uniq, ptr->generation << 16 );
     ptr->object = (UINT_PTR)freelist;
     freelist = ptr;
     return ret;
@@ -87,7 +87,7 @@ user_handle_t alloc_user_handle( void *ptr, enum user_object type )
     }
 
     handle->object = (UINT_PTR)ptr;
-    handle->uniq = generation << 16 | type;
+    atomic_store_ulong( &handle->uniq, generation << 16 | type );
     return entry_to_handle( handle );
 }
 

@@ -254,4 +254,26 @@ static inline user_handle_t get_valid_window_handle( user_handle_t win )
     return 0;
 }
 
+/* on x86 there should be total store order guarantees, so volatile is
+ * enough to ensure the stores aren't reordered by the compiler, and then
+ * they will always be seen in-order from other CPUs. On other archs, we
+ * need atomic intrinsics to guarantee that. */
+static inline void atomic_store_ulong( volatile ULONG *ptr, ULONG value )
+{
+#if defined(__i386__) || defined(__x86_64__)
+    *ptr = value;
+#else
+    __atomic_store_n( ptr, value, __ATOMIC_SEQ_CST );
+#endif
+}
+
+static inline void atomic_store_long( volatile LONG *ptr, LONG value )
+{
+#if defined(__i386__) || defined(__x86_64__)
+    *ptr = value;
+#else
+    __atomic_store_n( ptr, value, __ATOMIC_SEQ_CST );
+#endif
+}
+
 #endif  /* __WINE_SERVER_USER_H */
