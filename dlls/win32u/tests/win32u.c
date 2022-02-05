@@ -196,7 +196,6 @@ static const USER_HANDLE_ENTRY *get_handle_entry( USER_SHARED_INFO *shared_info,
     entry = (const USER_HANDLE_ENTRY *)shared_info->handles + index;
     ok( entry->type == type, "bType = %x, expected %x\n", entry->type, type );
     ok( entry->generation == HIWORD(handle), "bUniq = %x, expectex %x\n", entry->generation, HIWORD(handle) );
-    todo_wine
     ok( entry->tid == GetCurrentThreadId(), "pid = %x\n", entry->pid );
     return entry;
 }

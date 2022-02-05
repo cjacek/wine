@@ -21,6 +21,7 @@
 #include "ntstatus.h"
 #define WIN32_NO_STATUS
 #include "thread.h"
+#include "process.h"
 #include "user.h"
 #include "request.h"
 
@@ -89,6 +90,8 @@ user_handle_t alloc_user_handle( void *ptr, unsigned int type )
     }
 
     handle->object = (UINT_PTR)ptr;
+    atomic_store_ulong( &handle->tid, current->id );
+    atomic_store_ulong( &handle->pid, current->process->id );
     atomic_store_ulong( &handle->uniq, generation << 16 | type );
     return entry_to_handle( handle );
 }
