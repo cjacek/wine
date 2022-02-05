@@ -25,14 +25,13 @@
 
 static USER_HANDLE_ENTRY *handles;
 static USER_HANDLE_ENTRY *freelist;
-static int nb_handles;
 static struct user_session_info *session_info;
 
 static USER_HANDLE_ENTRY *handle_to_entry( user_handle_t handle )
 {
     unsigned short generation;
     unsigned int index = handle & 0xffff;
-    if (index >= nb_handles || !handles[index].type) return NULL;
+    if (index >= session_info->nb_handles || !handles[index].type) return NULL;
     generation = handle >> 16;
     if (generation == handles[index].generation || !generation || generation == 0xffff)
         return &handles[index];
@@ -63,7 +62,7 @@ void init_session_shared_data( void *ptr )
 {
     session_info = ptr;
     handles = (void *)(session_info + 1);
-    nb_handles = FIRST_USER_HANDLE;
+    atomic_store_ulong( &session_info->nb_handles, FIRST_USER_HANDLE );
 }
 
 /* allocate a user handle for a given object */
@@ -81,8 +80,10 @@ user_handle_t alloc_user_handle( void *ptr, enum user_object type )
     }
     else
     {
+        unsigned int nb_handles = session_info->nb_handles;
         if (nb_handles == LAST_USER_HANDLE) return 0;
-        handle = &handles[nb_handles++];
+        handle = &handles[nb_handles];
+        atomic_store_ulong( &session_info->nb_handles, nb_handles + 1 );
         generation = 1;
     }
 
@@ -136,6 +137,7 @@ void *free_user_handle( user_handle_t handle )
 /* return the next user handle after 'handle' that is of a given type */
 void *next_user_handle( user_handle_t *handle, enum user_object type )
 {
+    unsigned int nb_handles = session_info->nb_handles;
     USER_HANDLE_ENTRY *entry;
 
     if (!*handle) entry = handles;
@@ -160,7 +162,7 @@ void *next_user_handle( user_handle_t *handle, enum user_object type )
 /* free client-side user handles managed by the process */
 void free_process_user_handles( struct process *process )
 {
-    unsigned int i;
+    unsigned int i, nb_handles = session_info->nb_handles;
 
     for (i = 0; i < nb_handles; i++)
         if (handles[i].type == USER_CLIENT && get_entry_obj_ptr( &handles[i] ) == process)

@@ -192,7 +192,6 @@ static const USER_HANDLE_ENTRY *get_handle_entry( USER_SHARED_INFO *shared_info,
     unsigned int index = LOWORD(handle);
     const USER_HANDLE_ENTRY *entry;
 
-    todo_wine
     ok( index <= session_info->nb_handles, "index > nb_handles\n" );
     entry = (const USER_HANDLE_ENTRY *)shared_info->handles + index;
     todo_wine_if(type != NTUSER_OBJ_WINDOW)
