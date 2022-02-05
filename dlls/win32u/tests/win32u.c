@@ -195,9 +195,8 @@ static const USER_HANDLE_ENTRY *get_handle_entry( USER_SHARED_INFO *shared_info,
     todo_wine
     ok( index <= session_info->nb_handles, "index > nb_handles\n" );
     entry = (const USER_HANDLE_ENTRY *)shared_info->handles + index;
-    todo_wine
+    todo_wine_if(type != NTUSER_OBJ_WINDOW)
     ok( entry->type == type, "bType = %x, expected %x\n", entry->type, type );
-    todo_wine
     ok( entry->generation == HIWORD(handle), "bUniq = %x, expectex %x\n", entry->generation, HIWORD(handle) );
     todo_wine
     ok( entry->tid == GetCurrentThreadId(), "pid = %x\n", entry->pid );

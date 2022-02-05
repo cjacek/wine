@@ -26,15 +26,13 @@
 static USER_HANDLE_ENTRY *handles;
 static USER_HANDLE_ENTRY *freelist;
 static int nb_handles;
-static int allocated_handles;
 static struct user_session_info *session_info;
 
 static USER_HANDLE_ENTRY *handle_to_entry( user_handle_t handle )
 {
     unsigned short generation;
-    int index = (handle & 0xffff) - FIRST_USER_HANDLE;
-    if (index < 0 || index >= nb_handles) return NULL;
-    if (!handles[index].type) return NULL;
+    unsigned int index = handle & 0xffff;
+    if (index >= nb_handles || !handles[index].type) return NULL;
     generation = handle >> 16;
     if (generation == handles[index].generation || !generation || generation == 0xffff)
         return &handles[index];
@@ -43,8 +41,7 @@ static USER_HANDLE_ENTRY *handle_to_entry( user_handle_t handle )
 
 static inline user_handle_t entry_to_handle( USER_HANDLE_ENTRY *ptr )
 {
-    unsigned int index = ptr - handles;
-    return index + FIRST_USER_HANDLE + (ptr->generation << 16);
+    return (ptr - handles) | (ptr->generation << 16);
 }
 
 static void *get_entry_obj_ptr( USER_HANDLE_ENTRY *ptr )
@@ -52,40 +49,12 @@ static void *get_entry_obj_ptr( USER_HANDLE_ENTRY *ptr )
     return (void *)(UINT_PTR)ptr->object;
 }
 
-static inline USER_HANDLE_ENTRY *alloc_user_entry(void)
+static void *free_user_entry( USER_HANDLE_ENTRY *ptr )
 {
-    USER_HANDLE_ENTRY *handle;
-
-    if (freelist)
-    {
-        handle = freelist;
-        freelist = get_entry_obj_ptr( handle );
-        return handle;
-    }
-    if (nb_handles >= allocated_handles)  /* need to grow the array */
-    {
-        USER_HANDLE_ENTRY *new_handles;
-        /* grow array by 50% (but at minimum 32 entries) */
-        int growth = max( 32, allocated_handles / 2 );
-        int new_size = min( allocated_handles + growth, LAST_USER_HANDLE-FIRST_USER_HANDLE+1 );
-        if (new_size <= allocated_handles) return NULL;
-        if (!(new_handles = realloc( handles, new_size * sizeof(*handles) )))
-            return NULL;
-        handles = new_handles;
-        allocated_handles = new_size;
-    }
-    handle = &handles[nb_handles++];
-    handle->generation = 0;
-    return handle;
-}
-
-static inline void *free_user_entry( USER_HANDLE_ENTRY *ptr )
-{
-    void *ret;
-    ret = get_entry_obj_ptr( ptr );
+    void *ret = get_entry_obj_ptr( ptr );
+    ptr->uniq = ptr->generation << 16;
     ptr->object = (UINT_PTR)freelist;
-    ptr->type = 0;
-    freelist  = ptr;
+    freelist = ptr;
     return ret;
 }
 
@@ -93,17 +62,33 @@ static inline void *free_user_entry( USER_HANDLE_ENTRY *ptr )
 void init_session_shared_data( void *ptr )
 {
     session_info = ptr;
+    handles = (void *)(session_info + 1);
+    nb_handles = FIRST_USER_HANDLE;
 }
 
 /* allocate a user handle for a given object */
 user_handle_t alloc_user_handle( void *ptr, enum user_object type )
 {
-    USER_HANDLE_ENTRY *entry = alloc_user_entry();
-    if (!entry) return 0;
-    entry->object = (UINT_PTR)ptr;
-    entry->type = type;
-    if (++entry->generation >= 0xffff) entry->generation = 1;
-    return entry_to_handle( entry );
+    USER_HANDLE_ENTRY *handle;
+    unsigned int generation;
+
+    if (freelist)
+    {
+        handle = freelist;
+        freelist = get_entry_obj_ptr( handle );
+        generation = handle->generation + 1;
+        if (generation >= 0xffff) generation = 1;
+    }
+    else
+    {
+        if (nb_handles == LAST_USER_HANDLE) return 0;
+        handle = &handles[nb_handles++];
+        generation = 1;
+    }
+
+    handle->object = (UINT_PTR)ptr;
+    handle->uniq = generation << 16 | type;
+    return entry_to_handle( handle );
 }
 
 /* return a pointer to a user object from its handle */
@@ -156,8 +141,8 @@ void *next_user_handle( user_handle_t *handle, enum user_object type )
     if (!*handle) entry = handles;
     else
     {
-        int index = (*handle & 0xffff) - FIRST_USER_HANDLE;
-        if (index < 0 || index >= nb_handles) return NULL;
+        unsigned int index = *handle & 0xffff;
+        if (index >= nb_handles) return NULL;
         entry = handles + index + 1;  /* start from the next one */
     }
     while (entry < handles + nb_handles)
