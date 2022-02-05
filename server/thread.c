@@ -1288,9 +1288,9 @@ void kill_thread( struct thread *thread, int violent_death )
     }
     kill_console_processes( thread, 0 );
     abandon_mutexes( thread );
-    wake_up( &thread->obj, 0 );
     if (violent_death) send_thread_signal( thread, SIGQUIT );
     cleanup_thread( thread );
+    wake_up( &thread->obj, 0 );
     remove_process_thread( thread->process, thread );
     release_object( thread );
 }
