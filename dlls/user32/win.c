@@ -1164,7 +1164,7 @@ LRESULT WIN_DestroyWindow( HWND hwnd )
 
     if (!(wndPtr = WIN_GetPtr( hwnd )) || wndPtr == WND_OTHER_PROCESS) return 0;
     if ((wndPtr->shared->style & (WS_CHILD | WS_POPUP)) != WS_CHILD)
-        menu = (HMENU)wndPtr->wIDmenu;
+        menu = UlongToHandle( wndPtr->shared->id );
     sys_menu = wndPtr->hSysMenu;
     free_dce( wndPtr->dce, hwnd );
     wndPtr->dce = NULL;
@@ -1248,8 +1248,8 @@ void destroy_thread_windows(void)
         free_list = win->obj.handle;
         TRACE( "destroying %p\n", win->obj.handle );
 
-        if ((win->shared->style & (WS_CHILD | WS_POPUP)) != WS_CHILD && win->wIDmenu)
-            DestroyMenu( UlongToHandle(win->wIDmenu) );
+        if ((win->shared->style & (WS_CHILD | WS_POPUP)) != WS_CHILD && win->shared->id)
+            DestroyMenu( UlongToHandle(win->shared->id) );
         if (win->hSysMenu) DestroyMenu( win->hSysMenu );
         if (win->surface)
         {
@@ -1653,7 +1653,6 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
     wndPtr->tid            = GetCurrentThreadId();
     wndPtr->hInstance      = cs->hInstance;
     wndPtr->text           = NULL;
-    wndPtr->wIDmenu        = 0;
     wndPtr->helpContext    = 0;
     wndPtr->pScroll        = NULL;
     wndPtr->hIcon          = 0;
@@ -2549,7 +2548,7 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
     case GWLP_USERDATA:  retvalue = wndPtr->shared->user_data; break;
     case GWL_STYLE:      retvalue = wndPtr->shared->style; break;
     case GWL_EXSTYLE:    retvalue = wndPtr->shared->ex_style; break;
-    case GWLP_ID:        retvalue = wndPtr->wIDmenu; break;
+    case GWLP_ID:        retvalue = wndPtr->shared->id; break;
     case GWLP_HINSTANCE: retvalue = (ULONG_PTR)wndPtr->hInstance; break;
     case GWLP_WNDPROC:
         /* This looks like a hack only for the edit control (see tests). This makes these controls
@@ -2753,7 +2752,6 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
                 retval = reply->old_ex_style;
                 break;
             case GWLP_ID:
-                wndPtr->wIDmenu = newval;
                 retval = reply->old_id;
                 break;
             case GWLP_HINSTANCE:
