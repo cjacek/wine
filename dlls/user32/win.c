@@ -219,6 +219,8 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
         return NULL;
     }
 
+    USER_Lock();
+
     SERVER_START_REQ( create_window )
     {
         req->parent   = wine_server_user_handle( parent );
@@ -245,6 +247,7 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
 
     if (!handle)
     {
+        USER_Unlock();
         WARN( "error %d creating window\n", GetLastError() );
         HeapFree( GetProcessHeap(), 0, win );
         return NULL;
@@ -258,33 +261,12 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
             wine_server_call( req );
         }
         SERVER_END_REQ;
+        USER_Unlock();
         HeapFree( GetProcessHeap(), 0, win );
         SetLastError( ERROR_NOT_ENOUGH_MEMORY );
         return NULL;
     }
 
-    if (!parent)  /* if parent is 0 we don't have a desktop window yet */
-    {
-        struct user_thread_info *thread_info = get_user_thread_info();
-
-        if (name == (LPCWSTR)DESKTOP_CLASS_ATOM)
-        {
-            if (!thread_info->top_window) thread_info->top_window = full_parent ? full_parent : handle;
-            else assert( full_parent == thread_info->top_window );
-            if (full_parent && !USER_Driver->pCreateDesktopWindow( thread_info->top_window ))
-                ERR( "failed to create desktop window\n" );
-            register_builtin_classes();
-        }
-        else  /* HWND_MESSAGE parent */
-        {
-            if (!thread_info->msg_window && !full_parent) thread_info->msg_window = handle;
-        }
-    }
-
-    USER_Lock();
-
-    index = USER_HANDLE_TO_INDEX(handle);
-    assert( index < NB_USER_HANDLES );
     win->obj.handle = handle;
     win->obj.type   = NTUSER_OBJ_WINDOW;
     win->parent     = full_parent;
@@ -294,8 +276,31 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
     win->cbWndExtra = extra_bytes;
     win->dpi        = dpi;
     win->dpi_awareness = awareness;
-    InterlockedExchangePointer( &user_handles[index], win );
     if (WINPROC_IsUnicode( win->winproc, unicode )) win->flags |= WIN_ISUNICODE;
+    index = USER_HANDLE_TO_INDEX(handle);
+    assert( index < NB_USER_HANDLES );
+    InterlockedExchangePointer( &user_handles[index], win );
+
+    if (!parent)  /* if parent is 0 we don't have a desktop window yet */
+    {
+        struct user_thread_info *thread_info = get_user_thread_info();
+
+        if (name == (LPCWSTR)DESKTOP_CLASS_ATOM)
+        {
+            USER_Unlock();
+            if (!thread_info->top_window) thread_info->top_window = full_parent ? full_parent : handle;
+            else assert( full_parent == thread_info->top_window );
+            if (full_parent && !USER_Driver->pCreateDesktopWindow( thread_info->top_window ))
+                ERR( "failed to create desktop window\n" );
+            register_builtin_classes();
+            USER_Lock();
+        }
+        else  /* HWND_MESSAGE parent */
+        {
+            if (!thread_info->msg_window && !full_parent) thread_info->msg_window = handle;
+        }
+    }
+
     return win;
 }
 
