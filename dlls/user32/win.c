@@ -1018,13 +1018,13 @@ BOOL WIN_GetRectangles( HWND hwnd, enum coords_relative relative, RECT *rectWind
         case COORDS_CLIENT:
             OffsetRect( &window_rect, -win->client_rect.left, -win->client_rect.top );
             OffsetRect( &client_rect, -win->client_rect.left, -win->client_rect.top );
-            if (win->dwExStyle & WS_EX_LAYOUTRTL)
+            if (win->shared->ex_style & WS_EX_LAYOUTRTL)
                 mirror_rect( &win->client_rect, &window_rect );
             break;
         case COORDS_WINDOW:
             OffsetRect( &window_rect, -win->window_rect.left, -win->window_rect.top );
             OffsetRect( &client_rect, -win->window_rect.left, -win->window_rect.top );
-            if (win->dwExStyle & WS_EX_LAYOUTRTL)
+            if (win->shared->ex_style & WS_EX_LAYOUTRTL)
                 mirror_rect( &win->window_rect, &client_rect );
             break;
         case COORDS_PARENT:
@@ -1043,7 +1043,7 @@ BOOL WIN_GetRectangles( HWND hwnd, enum coords_relative relative, RECT *rectWind
                     WIN_ReleasePtr( win );
                     goto other_process;
                 }
-                if (parent->dwExStyle & WS_EX_LAYOUTRTL)
+                if (parent->shared->ex_style & WS_EX_LAYOUTRTL)
                 {
                     mirror_rect( &parent->client_rect, &window_rect );
                     mirror_rect( &parent->client_rect, &client_rect );
@@ -1653,7 +1653,6 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
     wndPtr->tid            = GetCurrentThreadId();
     wndPtr->hInstance      = cs->hInstance;
     wndPtr->text           = NULL;
-    wndPtr->dwExStyle      = ex_style;
     wndPtr->wIDmenu        = 0;
     wndPtr->helpContext    = 0;
     wndPtr->pScroll        = NULL;
@@ -1689,10 +1688,10 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
         if (!(style & WS_POPUP)) style |= WS_CAPTION;
     }
 
-    wndPtr->dwExStyle = cs->dwExStyle;
+    ex_style = cs->dwExStyle;
     /* WS_EX_WINDOWEDGE depends on some other styles */
     if ((style & (WS_DLGFRAME | WS_THICKFRAME)) && !(style & (WS_CHILD | WS_POPUP)))
-        wndPtr->dwExStyle |= WS_EX_WINDOWEDGE;
+        ex_style |= WS_EX_WINDOWEDGE;
 
     if (!(style & (WS_CHILD | WS_POPUP)))
         wndPtr->flags |= WIN_NEED_SIZE;
@@ -1702,7 +1701,7 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
         req->handle    = wine_server_user_handle( hwnd );
         req->flags     = SET_WIN_STYLE | SET_WIN_EXSTYLE | SET_WIN_INSTANCE | SET_WIN_UNICODE;
         req->style     = style;
-        req->ex_style  = wndPtr->dwExStyle;
+        req->ex_style  = ex_style;
         req->instance  = wine_server_client_ptr( wndPtr->hInstance );
         req->is_unicode = (wndPtr->flags & WIN_ISUNICODE) != 0;
         req->extra_offset = -1;
@@ -2550,7 +2549,7 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
     {
     case GWLP_USERDATA:  retvalue = wndPtr->userdata; break;
     case GWL_STYLE:      retvalue = wndPtr->shared->style; break;
-    case GWL_EXSTYLE:    retvalue = wndPtr->dwExStyle; break;
+    case GWL_EXSTYLE:    retvalue = wndPtr->shared->ex_style; break;
     case GWLP_ID:        retvalue = wndPtr->wIDmenu; break;
     case GWLP_HINSTANCE: retvalue = (ULONG_PTR)wndPtr->hInstance; break;
     case GWLP_WNDPROC:
@@ -2638,13 +2637,13 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
         if (wndPtr->shared->style & WS_MINIMIZE) newval |= WS_MINIMIZE;
         break;
     case GWL_EXSTYLE:
-        style.styleOld = wndPtr->dwExStyle;
+        style.styleOld = wndPtr->shared->ex_style;
         style.styleNew = newval;
         WIN_ReleasePtr( wndPtr );
         SendMessageW( hwnd, WM_STYLECHANGING, GWL_EXSTYLE, (LPARAM)&style );
         if (!(wndPtr = WIN_GetPtr( hwnd )) || wndPtr == WND_OTHER_PROCESS) return 0;
         /* WS_EX_TOPMOST can only be changed through SetWindowPos */
-        newval = (style.styleNew & ~WS_EX_TOPMOST) | (wndPtr->dwExStyle & WS_EX_TOPMOST);
+        newval = (style.styleNew & ~WS_EX_TOPMOST) | (wndPtr->shared->ex_style & WS_EX_TOPMOST);
         newval = fix_exstyle(wndPtr->shared->style, newval);
         break;
     case GWLP_HWNDPARENT:
@@ -2716,7 +2715,7 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
         case GWL_STYLE:
             req->flags = SET_WIN_STYLE | SET_WIN_EXSTYLE;
             req->style = newval;
-            req->ex_style = fix_exstyle(newval, wndPtr->dwExStyle);
+            req->ex_style = fix_exstyle(newval, wndPtr->shared->ex_style);
             break;
         case GWL_EXSTYLE:
             req->flags = SET_WIN_EXSTYLE;
@@ -2749,11 +2748,9 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
             switch(offset)
             {
             case GWL_STYLE:
-                wndPtr->dwExStyle = fix_exstyle(wndPtr->shared->style, wndPtr->dwExStyle);
                 retval = reply->old_style;
                 break;
             case GWL_EXSTYLE:
-                wndPtr->dwExStyle = newval;
                 retval = reply->old_ex_style;
                 break;
             case GWLP_ID:

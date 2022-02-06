@@ -415,7 +415,7 @@ static BOOL WINPOS_GetWinOffset( HWND hwndFrom, HWND hwndTo, BOOL *mirrored, POI
         if (wndPtr == WND_OTHER_PROCESS) goto other_process;
         if (wndPtr != WND_DESKTOP)
         {
-            if (wndPtr->dwExStyle & WS_EX_LAYOUTRTL)
+            if (wndPtr->shared->ex_style & WS_EX_LAYOUTRTL)
             {
                 mirror_from = TRUE;
                 offset.x += wndPtr->client_rect.right - wndPtr->client_rect.left;
@@ -452,7 +452,7 @@ static BOOL WINPOS_GetWinOffset( HWND hwndFrom, HWND hwndTo, BOOL *mirrored, POI
         if (wndPtr != WND_DESKTOP)
         {
             POINT pt = { 0, 0 };
-            if (wndPtr->dwExStyle & WS_EX_LAYOUTRTL)
+            if (wndPtr->shared->ex_style & WS_EX_LAYOUTRTL)
             {
                 mirror_to = TRUE;
                 pt.x += wndPtr->client_rect.right - wndPtr->client_rect.left;
@@ -2075,17 +2075,17 @@ static BOOL fixup_flags( WINDOWPOS *winpos, const RECT *old_window_rect, int par
     }
     else if (winpos->hwndInsertAfter == HWND_BOTTOM)
     {
-        if (!(wndPtr->dwExStyle & WS_EX_TOPMOST) && GetWindow(winpos->hwnd, GW_HWNDLAST) == winpos->hwnd)
+        if (!(wndPtr->shared->ex_style & WS_EX_TOPMOST) && GetWindow(winpos->hwnd, GW_HWNDLAST) == winpos->hwnd)
             winpos->flags |= SWP_NOZORDER;
     }
     else if (winpos->hwndInsertAfter == HWND_TOPMOST)
     {
-        if ((wndPtr->dwExStyle & WS_EX_TOPMOST) && GetWindow(winpos->hwnd, GW_HWNDFIRST) == winpos->hwnd)
+        if ((wndPtr->shared->ex_style & WS_EX_TOPMOST) && GetWindow(winpos->hwnd, GW_HWNDFIRST) == winpos->hwnd)
             winpos->flags |= SWP_NOZORDER;
     }
     else if (winpos->hwndInsertAfter == HWND_NOTOPMOST)
     {
-        if (!(wndPtr->dwExStyle & WS_EX_TOPMOST))
+        if (!(wndPtr->shared->ex_style & WS_EX_TOPMOST))
             winpos->flags |= SWP_NOZORDER;
     }
     else
@@ -2242,7 +2242,6 @@ BOOL set_window_pos( HWND hwnd, HWND insert_after, UINT swp_flags,
 
         if ((ret = !wine_server_call( req )))
         {
-            win->dwExStyle  = reply->new_ex_style;
             win->window_rect  = *window_rect;
             win->client_rect  = *client_rect;
             win->visible_rect = visible_rect;
@@ -2258,7 +2257,7 @@ BOOL set_window_pos( HWND hwnd, HWND insert_after, UINT swp_flags,
                 mirror_rect( &client, &win->visible_rect );
             }
             /* if an RTL window is resized the children have moved */
-            if (win->dwExStyle & WS_EX_LAYOUTRTL &&
+            if (win->shared->ex_style & WS_EX_LAYOUTRTL &&
                 client_rect->right - client_rect->left != old_client_rect.right - old_client_rect.left)
                 win->flags |= WIN_CHILDREN_MOVED;
         }

@@ -215,7 +215,7 @@ static BOOL SCROLL_GetScrollBarRect( HWND hwnd, INT nBar, RECT *lprect,
 
       case SB_VERT:
         WIN_GetRectangles( hwnd, COORDS_WINDOW, NULL, lprect );
-        if((wndPtr->dwExStyle & WS_EX_LEFTSCROLLBAR) != 0)
+        if((wndPtr->shared->ex_style & WS_EX_LEFTSCROLLBAR) != 0)
         {
             lprect->right = lprect->left;
             lprect->left -= GetSystemMetrics(SM_CXVSCROLL);
