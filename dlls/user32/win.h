@@ -67,7 +67,7 @@ typedef struct tagWND
     int            pixel_format;  /* Pixel format set by the graphics driver */
     int            cbWndExtra;    /* class cbWndExtra at window creation */
     DWORD_PTR      userdata;      /* User private data */
-    DWORD          wExtra[1];     /* Window extra bytes */
+    DWORD         *wExtra;        /* Window extra bytes */
 } WND;
 
   /* WND flags values */

@@ -213,6 +213,12 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
     DPI_AWARENESS awareness = GetAwarenessFromDpiAwarenessContext( GetThreadDpiAwarenessContext() );
     UINT dpi = 0;
 
+    if (!(win = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*win) )))
+    {
+        SetLastError( ERROR_NOT_ENOUGH_MEMORY );
+        return NULL;
+    }
+
     SERVER_START_REQ( create_window )
     {
         req->parent   = wine_server_user_handle( parent );
@@ -240,11 +246,11 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
     if (!handle)
     {
         WARN( "error %d creating window\n", GetLastError() );
+        HeapFree( GetProcessHeap(), 0, win );
         return NULL;
     }
 
-    if (!(win = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY,
-                           sizeof(WND) + extra_bytes - sizeof(win->wExtra) )))
+    if (extra_bytes && !(win->wExtra = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, extra_bytes )))
     {
         SERVER_START_REQ( destroy_window )
         {
@@ -252,6 +258,7 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
             wine_server_call( req );
         }
         SERVER_END_REQ;
+        HeapFree( GetProcessHeap(), 0, win );
         SetLastError( ERROR_NOT_ENOUGH_MEMORY );
         return NULL;
     }
@@ -300,7 +307,7 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
  */
 static void free_window_handle( HWND hwnd )
 {
-    struct user_object *ptr;
+    WND *ptr;
     WORD index = USER_HANDLE_TO_INDEX(hwnd);
 
     if ((ptr = get_user_handle_ptr( hwnd, NTUSER_OBJ_WINDOW )) && ptr != OBJ_OTHER_PROCESS)
@@ -313,6 +320,7 @@ static void free_window_handle( HWND hwnd )
         }
         SERVER_END_REQ;
         USER_Unlock();
+        HeapFree( GetProcessHeap(), 0, ptr->wExtra );
         HeapFree( GetProcessHeap(), 0, ptr );
     }
 }
@@ -1253,6 +1261,7 @@ void destroy_thread_windows(void)
             register_window_surface( win->surface, NULL );
             window_surface_release( win->surface );
         }
+        HeapFree( GetProcessHeap(), 0, win->wExtra );
         HeapFree( GetProcessHeap(), 0, win );
     }
 }
