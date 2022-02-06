@@ -108,7 +108,8 @@ HANDLE alloc_user_handle( struct user_object *ptr, unsigned int type )
 
     SERVER_START_REQ( alloc_user_handle )
     {
-        req->type = type;
+        req->client_ptr = wine_server_client_ptr( ptr );
+        req->type       = type;
         if (!wine_server_call_err( req )) handle = wine_server_ptr_handle( reply->handle );
     }
     SERVER_END_REQ;
@@ -186,6 +187,7 @@ void *free_user_handle( HANDLE handle, unsigned int type )
         SERVER_START_REQ( free_user_handle )
         {
             req->handle = wine_server_user_handle( handle );
+            req->type   = type;
             if (wine_server_call( req )) ptr = NULL;
             else InterlockedCompareExchangePointer( &user_handles[index], NULL, ptr );
         }
@@ -223,13 +225,14 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
 
     SERVER_START_REQ( create_window )
     {
-        req->parent   = wine_server_user_handle( parent );
-        req->owner    = wine_server_user_handle( owner );
-        req->instance = wine_server_client_ptr( instance );
-        req->dpi      = GetDpiForSystem();
-        req->awareness = awareness;
-        req->style    = style;
-        req->ex_style = ex_style;
+        req->client_ptr = wine_server_client_ptr( win );
+        req->parent     = wine_server_user_handle( parent );
+        req->owner      = wine_server_user_handle( owner );
+        req->instance   = wine_server_client_ptr( instance );
+        req->dpi        = GetDpiForSystem();
+        req->awareness  = awareness;
+        req->style      = style;
+        req->ex_style   = ex_style;
         if (!(req->atom = get_int_atom_value( name )) && name)
             wine_server_add_data( req, name, lstrlenW(name)*sizeof(WCHAR) );
         if (!wine_server_call_err( req ))

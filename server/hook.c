@@ -140,7 +140,7 @@ static struct hook *add_hook( struct desktop *desktop, struct thread *thread, in
     }
     if (!(hook = mem_alloc( sizeof(*hook) ))) return NULL;
 
-    if (!(hook->handle = alloc_user_handle( hook, NTUSER_OBJ_HOOK )))
+    if (!(hook->handle = alloc_user_handle( hook, NTUSER_OBJ_HOOK, 0 )))
     {
         free( hook );
         return NULL;

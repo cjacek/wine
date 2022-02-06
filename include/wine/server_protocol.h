@@ -3026,6 +3026,7 @@ struct create_window_request
     int            awareness;
     unsigned int   style;
     unsigned int   ex_style;
+    client_ptr_t   client_ptr;
     /* VARARG(class,unicode_str); */
 };
 struct create_window_reply
@@ -5154,7 +5155,10 @@ struct set_window_layered_info_reply
 struct alloc_user_handle_request
 {
     struct request_header __header;
+    char __pad_12[4];
+    client_ptr_t   client_ptr;
     unsigned int   type;
+    char __pad_28[4];
 };
 struct alloc_user_handle_reply
 {
@@ -5169,10 +5173,13 @@ struct free_user_handle_request
 {
     struct request_header __header;
     user_handle_t  handle;
+    unsigned int   type;
+    char __pad_20[4];
 };
 struct free_user_handle_reply
 {
     struct reply_header __header;
+    client_ptr_t   client_ptr;
 };
 
 
@@ -6263,7 +6270,7 @@ union generic_reply
 
 /* ### protocol_version begin ### */
 
-#define SERVER_PROTOCOL_VERSION 743
+#define SERVER_PROTOCOL_VERSION 745
 
 /* ### protocol_version end ### */
 

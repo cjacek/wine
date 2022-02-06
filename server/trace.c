@@ -2841,6 +2841,7 @@ static void dump_create_window_request( const struct create_window_request *req 
     fprintf( stderr, ", awareness=%d", req->awareness );
     fprintf( stderr, ", style=%08x", req->style );
     fprintf( stderr, ", ex_style=%08x", req->ex_style );
+    dump_uint64( ", client_ptr=", &req->client_ptr );
     dump_varargs_unicode_str( ", class=", cur_size );
 }
 
@@ -4309,7 +4310,8 @@ static void dump_set_window_layered_info_request( const struct set_window_layere
 
 static void dump_alloc_user_handle_request( const struct alloc_user_handle_request *req )
 {
-    fprintf( stderr, " type=%08x", req->type );
+    dump_uint64( " client_ptr=", &req->client_ptr );
+    fprintf( stderr, ", type=%08x", req->type );
 }
 
 static void dump_alloc_user_handle_reply( const struct alloc_user_handle_reply *req )
@@ -4320,6 +4322,12 @@ static void dump_alloc_user_handle_reply( const struct alloc_user_handle_reply *
 static void dump_free_user_handle_request( const struct free_user_handle_request *req )
 {
     fprintf( stderr, " handle=%08x", req->handle );
+    fprintf( stderr, ", type=%08x", req->type );
+}
+
+static void dump_free_user_handle_reply( const struct free_user_handle_reply *req )
+{
+    dump_uint64( " client_ptr=", &req->client_ptr );
 }
 
 static void dump_set_cursor_request( const struct set_cursor_request *req )
@@ -5008,7 +5016,7 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_get_window_layered_info_reply,
     NULL,
     (dump_func)dump_alloc_user_handle_reply,
-    NULL,
+    (dump_func)dump_free_user_handle_reply,
     (dump_func)dump_set_cursor_reply,
     (dump_func)dump_get_cursor_history_reply,
     (dump_func)dump_get_rawinput_buffer_reply,

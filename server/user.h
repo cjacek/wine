@@ -77,7 +77,7 @@ struct desktop
 
 /* user handles functions */
 
-extern user_handle_t alloc_user_handle( void *ptr, unsigned int type );
+extern user_handle_t alloc_user_handle( void *ptr, unsigned int type, client_ptr_t client_ptr );
 extern void *get_user_object( user_handle_t handle, unsigned int type );
 extern void *get_user_object_handle( user_handle_t *handle, unsigned int type );
 extern user_handle_t get_user_full_handle( user_handle_t handle );
@@ -267,6 +267,15 @@ static inline void atomic_store_long( volatile LONG *ptr, LONG value )
     *ptr = value;
 #else
     __atomic_store_n( ptr, value, __ATOMIC_SEQ_CST );
+#endif
+}
+
+static inline void atomic_store_ptr( volatile ULONG64 *ptr, ULONG64 value )
+{
+#if defined(__i386__) || defined(__x86_64__)
+    *ptr = value;
+#else
+    __atomic_store_n(ptr, value, __ATOMIC_SEQ_CST);
 #endif
 }
 

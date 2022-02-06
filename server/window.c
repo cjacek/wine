@@ -515,7 +515,7 @@ void post_desktop_message( struct desktop *desktop, unsigned int message,
 
 /* create a new window structure (note: the window is not linked in the window tree) */
 static struct window *create_window( struct window *parent, struct window *owner,
-                                     atom_t atom, mod_handle_t instance )
+                                     atom_t atom, mod_handle_t instance, client_ptr_t client_ptr )
 {
     int extra_bytes;
     struct window *win = NULL;
@@ -590,7 +590,7 @@ static struct window *create_window( struct window *parent, struct window *owner
         memset( win->extra_bytes, 0, extra_bytes );
         win->nb_extra_bytes = extra_bytes;
     }
-    if (!(win->handle = alloc_user_handle( win, NTUSER_OBJ_WINDOW ))) goto failed;
+    if (!(win->handle = alloc_user_handle( win, NTUSER_OBJ_WINDOW, client_ptr ))) goto failed;
 
     /* if parent belongs to a different thread and the window isn't */
     /* top-level, attach the two threads */
@@ -2052,7 +2052,7 @@ DECL_HANDLER(create_window)
 
     atom = cls_name.len ? find_global_atom( NULL, &cls_name ) : req->atom;
 
-    if (!(win = create_window( parent, owner, atom, req->instance ))) return;
+    if (!(win = create_window( parent, owner, atom, req->instance, req->client_ptr ))) return;
 
     if (parent && !is_desktop_window( parent ))
     {
@@ -2127,7 +2127,7 @@ DECL_HANDLER(get_desktop_window)
 
     if (!desktop->top_window && force)  /* create it */
     {
-        if ((desktop->top_window = create_window( NULL, NULL, DESKTOP_ATOM, 0 )))
+        if ((desktop->top_window = create_window( NULL, NULL, DESKTOP_ATOM, 0, 2 /* WND_DESKTOP */ )))
         {
             detach_window_thread( desktop->top_window );
             desktop->top_window->style  = WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
@@ -2139,7 +2139,7 @@ DECL_HANDLER(get_desktop_window)
         static const WCHAR messageW[] = {'M','e','s','s','a','g','e'};
         static const struct unicode_str name = { messageW, sizeof(messageW) };
         atom_t atom = add_global_atom( NULL, &name );
-        if (atom && (desktop->msg_window = create_window( NULL, NULL, atom, 0 )))
+        if (atom && (desktop->msg_window = create_window( NULL, NULL, atom, 0, 2 /* WND_DESKTOP */ )))
         {
             detach_window_thread( desktop->msg_window );
             desktop->msg_window->style = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;

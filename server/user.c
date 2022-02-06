@@ -68,7 +68,7 @@ void init_session_shared_data( void *ptr )
 }
 
 /* allocate a user handle for a given object */
-user_handle_t alloc_user_handle( void *ptr, unsigned int type )
+user_handle_t alloc_user_handle( void *ptr, unsigned int type, client_ptr_t client_ptr )
 {
     USER_HANDLE_ENTRY *handle;
     unsigned int generation;
@@ -90,6 +90,7 @@ user_handle_t alloc_user_handle( void *ptr, unsigned int type )
     }
 
     handle->object = (UINT_PTR)ptr;
+    atomic_store_ptr( &handle->client_ptr, client_ptr );
     atomic_store_ulong( &handle->tid, current->id );
     atomic_store_ulong( &handle->pid, current->process->id );
     atomic_store_ulong( &handle->uniq, generation << 16 | type );
@@ -182,7 +183,7 @@ void free_process_user_handles( struct process *process )
 DECL_HANDLER(alloc_user_handle)
 {
     if (is_client_type( req->type ))
-        reply->handle = alloc_user_handle( current->process, req->type );
+        reply->handle = alloc_user_handle( current->process, req->type, req->client_ptr );
     else
         set_error( STATUS_INVALID_PARAMETER );
 }
@@ -193,8 +194,15 @@ DECL_HANDLER(free_user_handle)
 {
     USER_HANDLE_ENTRY *entry;
 
-    if ((entry = handle_to_entry( req->handle )) && is_client_type( entry->type ))
-        free_user_entry( entry );
-    else
+    if (!is_client_type( req->type ))
+        set_error( ERROR_INVALID_PARAMETER );
+    else if (!(entry = handle_to_entry( req->handle )) || entry->type != req->type )
         set_error( STATUS_INVALID_HANDLE );
+    else if (get_entry_obj_ptr( entry ) != current->process)
+        set_error( STATUS_ACCESS_DENIED );
+    else
+    {
+        reply->client_ptr = entry->client_ptr;
+        free_user_entry( entry );
+    }
 }
