@@ -1656,7 +1656,6 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
     wndPtr->wIDmenu        = 0;
     wndPtr->helpContext    = 0;
     wndPtr->pScroll        = NULL;
-    wndPtr->userdata       = 0;
     wndPtr->hIcon          = 0;
     wndPtr->hIconSmall     = 0;
     wndPtr->hIconSmall2    = 0;
@@ -2547,7 +2546,7 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
 
     switch(offset)
     {
-    case GWLP_USERDATA:  retvalue = wndPtr->userdata; break;
+    case GWLP_USERDATA:  retvalue = wndPtr->shared->user_data; break;
     case GWL_STYLE:      retvalue = wndPtr->shared->style; break;
     case GWL_EXSTYLE:    retvalue = wndPtr->shared->ex_style; break;
     case GWLP_ID:        retvalue = wndPtr->wIDmenu; break;
@@ -2764,7 +2763,6 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
             case GWLP_WNDPROC:
                 break;
             case GWLP_USERDATA:
-                wndPtr->userdata = newval;
                 retval = reply->old_user_data;
                 break;
             default:

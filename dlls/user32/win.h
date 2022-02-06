@@ -65,7 +65,6 @@ typedef struct tagWND
     struct tagDIALOGINFO *dlgInfo;/* Dialog additional info (dialogs only) */
     int            pixel_format;  /* Pixel format set by the graphics driver */
     int            cbWndExtra;    /* class cbWndExtra at window creation */
-    DWORD_PTR      userdata;      /* User private data */
     DWORD         *wExtra;        /* Window extra bytes */
 } WND;
 

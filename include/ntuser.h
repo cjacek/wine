@@ -121,6 +121,7 @@ struct window_shared
 {
     ULONG  style;           /* window style */
     ULONG  ex_style;        /* window extended style */
+    UINT64 user_data;       /* user-specific data */
 };
 
 /* this is the structure stored in TEB->Win32ClientInfo */

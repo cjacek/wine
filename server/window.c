@@ -84,7 +84,6 @@ struct window
     unsigned int     layered_flags;   /* flags for a layered window */
     unsigned int     dpi;             /* window DPI or 0 if per-monitor aware */
     DPI_AWARENESS    dpi_awareness;   /* DPI awareness mode */
-    lparam_t         user_data;       /* user-specific data */
     WCHAR           *text;            /* window caption text */
     data_size_t      text_len;        /* length of window caption */
     unsigned int     paint_flags;     /* various painting flags */
@@ -573,7 +572,6 @@ static struct window *create_window( struct window *parent, struct window *owner
     win->is_orphan      = 0;
     win->dpi_awareness  = DPI_AWARENESS_PER_MONITOR_AWARE;
     win->dpi            = 0;
-    win->user_data      = 0;
     win->text           = NULL;
     win->text_len       = 0;
     win->paint_flags    = 0;
@@ -2243,7 +2241,7 @@ DECL_HANDLER(set_window_info)
     reply->old_ex_style  = win->shared->ex_style;
     reply->old_id        = win->id;
     reply->old_instance  = win->instance;
-    reply->old_user_data = win->user_data;
+    reply->old_user_data = win->shared->user_data;
     if (req->flags & SET_WIN_STYLE) atomic_store_ulong( &win->shared->style, req->style );
     if (req->flags & SET_WIN_EXSTYLE)
     {
@@ -2258,7 +2256,8 @@ DECL_HANDLER(set_window_info)
     if (req->flags & SET_WIN_ID) win->id = req->id;
     if (req->flags & SET_WIN_INSTANCE) win->instance = req->instance;
     if (req->flags & SET_WIN_UNICODE) win->is_unicode = req->is_unicode;
-    if (req->flags & SET_WIN_USERDATA) win->user_data = req->user_data;
+    if (req->flags & SET_WIN_USERDATA)
+        atomic_store_ptr( &win->shared->user_data, req->user_data );
     if (req->flags & SET_WIN_EXTRA) memcpy( win->extra_bytes + req->extra_offset,
                                             &req->extra_value, req->extra_size );
 
