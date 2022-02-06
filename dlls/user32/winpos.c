@@ -1185,8 +1185,8 @@ static BOOL show_window( HWND hwnd, INT cmd )
         WIN_GetRectangles( hwnd, COORDS_PARENT, NULL, &client );
         lparam = MAKELONG( client.right - client.left, client.bottom - client.top );
 	wndPtr->flags &= ~WIN_NEED_SIZE;
-	if (wndPtr->dwStyle & WS_MAXIMIZE) wParam = SIZE_MAXIMIZED;
-        else if (wndPtr->dwStyle & WS_MINIMIZE)
+	if (wndPtr->shared->style & WS_MAXIMIZE) wParam = SIZE_MAXIMIZED;
+        else if (wndPtr->shared->style & WS_MINIMIZE)
         {
             wParam = SIZE_MINIMIZED;
             lparam = 0;
@@ -1310,7 +1310,7 @@ static void update_maximized_pos( WND *wnd, RECT *work_rect )
     if (wnd->parent && wnd->parent != GetDesktopWindow())
         return;
 
-    if (wnd->dwStyle & WS_MAXIMIZE)
+    if (wnd->shared->style & WS_MAXIMIZE)
     {
         if (wnd->window_rect.left  <= work_rect->left  && wnd->window_rect.top    <= work_rect->top &&
             wnd->window_rect.right >= work_rect->right && wnd->window_rect.bottom >= work_rect->bottom)
@@ -1373,12 +1373,12 @@ BOOL WINAPI GetWindowPlacement( HWND hwnd, WINDOWPLACEMENT *wndpl )
     }
 
     /* update the placement according to the current style */
-    if (pWnd->dwStyle & WS_MINIMIZE)
+    if (pWnd->shared->style & WS_MINIMIZE)
     {
         pWnd->min_pos.x = pWnd->window_rect.left;
         pWnd->min_pos.y = pWnd->window_rect.top;
     }
-    else if (pWnd->dwStyle & WS_MAXIMIZE)
+    else if (pWnd->shared->style & WS_MAXIMIZE)
     {
         pWnd->max_pos.x = pWnd->window_rect.left;
         pWnd->max_pos.y = pWnd->window_rect.top;
@@ -1390,10 +1390,10 @@ BOOL WINAPI GetWindowPlacement( HWND hwnd, WINDOWPLACEMENT *wndpl )
     update_maximized_pos( pWnd, &work_rect );
 
     wndpl->length  = sizeof(*wndpl);
-    if( pWnd->dwStyle & WS_MINIMIZE )
+    if (pWnd->shared->style & WS_MINIMIZE)
         wndpl->showCmd = SW_SHOWMINIMIZED;
     else
-        wndpl->showCmd = ( pWnd->dwStyle & WS_MAXIMIZE ) ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL ;
+        wndpl->showCmd = ( pWnd->shared->style & WS_MAXIMIZE ) ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL ;
     if( pWnd->flags & WIN_RESTORE_MAX )
         wndpl->flags = WPF_RESTORETOMAXIMIZED;
     else
@@ -1484,7 +1484,7 @@ static BOOL WINPOS_SetPlacement( HWND hwnd, const WINDOWPLACEMENT *wndpl, UINT f
     }
     if (flags & PLACE_RECT) pWnd->normal_rect = rect_thread_to_win_dpi( hwnd, wp.rcNormalPosition );
 
-    style = pWnd->dwStyle;
+    style = pWnd->shared->style;
 
     WIN_ReleasePtr( pWnd );
 
@@ -1749,7 +1749,7 @@ static BOOL SWP_DoWinPosChanging( WINDOWPOS *pWinpos, RECT *old_window_rect, REC
 
     if (!(pWinpos->flags & SWP_NOSIZE))
     {
-        if (wndPtr->dwStyle & WS_MINIMIZE)
+        if (wndPtr->shared->style & WS_MINIMIZE)
         {
             new_window_rect->right  = new_window_rect->left + GetSystemMetrics(SM_CXMINIMIZED);
             new_window_rect->bottom = new_window_rect->top + GetSystemMetrics(SM_CYMINIMIZED);
@@ -1763,7 +1763,7 @@ static BOOL SWP_DoWinPosChanging( WINDOWPOS *pWinpos, RECT *old_window_rect, REC
     if (!(pWinpos->flags & SWP_NOMOVE))
     {
         /* If the window is toplevel minimized off-screen, force keep it there */
-        if ((wndPtr->dwStyle & WS_MINIMIZE) &&
+        if ((wndPtr->shared->style & WS_MINIMIZE) &&
              wndPtr->window_rect.left <= -32000 && wndPtr->window_rect.top <= -32000 &&
             (!wndPtr->parent || wndPtr->parent == GetDesktopWindow()))
         {
@@ -1783,7 +1783,7 @@ static BOOL SWP_DoWinPosChanging( WINDOWPOS *pWinpos, RECT *old_window_rect, REC
     TRACE( "hwnd %p, after %p, swp %d,%d %dx%d flags %08x current %s style %08x new %s\n",
            pWinpos->hwnd, pWinpos->hwndInsertAfter, pWinpos->x, pWinpos->y,
            pWinpos->cx, pWinpos->cy, pWinpos->flags,
-           wine_dbgstr_rect( old_window_rect ), wndPtr->dwStyle,
+           wine_dbgstr_rect( old_window_rect ), wndPtr->shared->style,
            wine_dbgstr_rect( new_window_rect ));
 
     WIN_ReleasePtr( wndPtr );
@@ -2040,7 +2040,7 @@ static BOOL fixup_flags( WINDOWPOS *winpos, const RECT *old_window_rect, int par
     parent = GetAncestor( winpos->hwnd, GA_PARENT );
     if (!IsWindowVisible( parent )) winpos->flags |= SWP_NOREDRAW;
 
-    if (wndPtr->dwStyle & WS_VISIBLE) winpos->flags &= ~SWP_SHOWWINDOW;
+    if (wndPtr->shared->style & WS_VISIBLE) winpos->flags &= ~SWP_SHOWWINDOW;
     else
     {
         winpos->flags &= ~SWP_HIDEWINDOW;
@@ -2054,7 +2054,7 @@ static BOOL fixup_flags( WINDOWPOS *winpos, const RECT *old_window_rect, int par
     if ((old_window_rect->left - parent_x == winpos->x) && (old_window_rect->top - parent_y == winpos->y))
         winpos->flags |= SWP_NOMOVE;    /* Already the right position */
 
-    if ((wndPtr->dwStyle & (WS_POPUP | WS_CHILD)) != WS_CHILD)
+    if ((wndPtr->shared->style & (WS_POPUP | WS_CHILD)) != WS_CHILD)
     {
         if (!(winpos->flags & (SWP_NOACTIVATE|SWP_HIDEWINDOW)) && /* Bring to the top when activating */
             (winpos->flags & SWP_NOZORDER ||
@@ -2242,7 +2242,6 @@ BOOL set_window_pos( HWND hwnd, HWND insert_after, UINT swp_flags,
 
         if ((ret = !wine_server_call( req )))
         {
-            win->dwStyle    = reply->new_style;
             win->dwExStyle  = reply->new_ex_style;
             win->window_rect  = *window_rect;
             win->client_rect  = *client_rect;

@@ -292,8 +292,8 @@ static struct dce *get_window_dce( HWND hwnd )
             win = WIN_GetPtr( hwnd );
             if (win && win != WND_OTHER_PROCESS && win != WND_DESKTOP)
             {
-                if (win->dwStyle & WS_CLIPCHILDREN) dce->flags |= DCX_CLIPCHILDREN;
-                if (win->dwStyle & WS_CLIPSIBLINGS) dce->flags |= DCX_CLIPSIBLINGS;
+                if (win->shared->style & WS_CLIPCHILDREN) dce->flags |= DCX_CLIPCHILDREN;
+                if (win->shared->style & WS_CLIPSIBLINGS) dce->flags |= DCX_CLIPSIBLINGS;
                 if (win->dce)  /* another thread beat us to it */
                 {
                     dce_to_free = dce;

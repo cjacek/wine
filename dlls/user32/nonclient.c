@@ -982,7 +982,7 @@ static void  NC_DoNCPaint( HWND  hwnd, HRGN  clip )
     RECT rectClient;
 
     if (!(wndPtr = WIN_GetPtr( hwnd )) || wndPtr == WND_OTHER_PROCESS) return;
-    dwStyle = wndPtr->dwStyle;
+    dwStyle = wndPtr->shared->style;
     dwExStyle = wndPtr->dwExStyle;
     flags = wndPtr->flags;
     WIN_ReleasePtr( wndPtr );

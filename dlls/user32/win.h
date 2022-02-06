@@ -36,6 +36,7 @@ struct tagDIALOGINFO;
 typedef struct tagWND
 {
     struct user_object obj;       /* object header */
+    const volatile struct window_shared *shared; /* shared window data */
     HWND           parent;        /* Window parent */
     HWND           owner;         /* Window owner */
     struct tagCLASS *class;       /* Window class */
@@ -51,7 +52,6 @@ typedef struct tagWND
     POINT          max_pos;       /* Position for maximized window */
     LPWSTR         text;          /* Window text */
     void          *pScroll;       /* Scroll-bar info */
-    DWORD          dwStyle;       /* Window style (from CreateWindow) */
     DWORD          dwExStyle;     /* Extended style (from CreateWindowEx) */
     UINT_PTR       wIDmenu;       /* ID or hmenu (from CreateWindow) */
     DWORD          helpContext;   /* Help context ID */

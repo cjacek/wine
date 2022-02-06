@@ -4310,7 +4310,7 @@ HMENU WINAPI GetSystemMenu( HWND hWnd, BOOL bRevert )
             wndPtr->hSysMenu = 0;
 	}
 
-	if(!wndPtr->hSysMenu && (wndPtr->dwStyle & WS_SYSMENU) )
+	if (!wndPtr->hSysMenu && (wndPtr->shared->style & WS_SYSMENU))
 	    wndPtr->hSysMenu = MENU_GetSysMenu( hWnd, 0 );
 
 	if( wndPtr->hSysMenu )

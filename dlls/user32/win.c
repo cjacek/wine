@@ -130,6 +130,13 @@ static const volatile USER_HANDLE_ENTRY *get_user_handle_entry( HANDLE handle, u
     return &handles[LOWORD(handle)];
 }
 
+static const volatile void *get_user_shared_ptr( HANDLE handle, unsigned int type )
+{
+    const volatile USER_HANDLE_ENTRY *entry;
+    if (!(entry = get_user_handle_entry( handle, type )) || !entry->shared_offset) return NULL;
+    return (const volatile char *)(UINT_PTR)gSharedInfo.session_info + entry->shared_offset;
+}
+
 /***********************************************************************
  *           get_user_handle_ptr
  */
@@ -259,6 +266,7 @@ static WND *create_window_handle( HWND parent, HWND owner, LPCWSTR name,
 
     win->obj.handle = handle;
     win->obj.type   = NTUSER_OBJ_WINDOW;
+    win->shared     = get_user_shared_ptr( handle, NTUSER_OBJ_WINDOW );
     win->parent     = full_parent;
     win->owner      = full_owner;
     win->class      = class;
@@ -934,8 +942,8 @@ ULONG WIN_SetStyle( HWND hwnd, ULONG set_bits, ULONG clear_bits )
             return SendMessageW(hwnd, WM_WINE_SETSTYLE, set_bits, clear_bits);
         return 0;
     }
-    style.styleOld = win->dwStyle;
-    style.styleNew = (win->dwStyle | set_bits) & ~clear_bits;
+    style.styleOld = win->shared->style;
+    style.styleNew = (style.styleOld | set_bits) & ~clear_bits;
     if (style.styleNew == style.styleOld)
     {
         WIN_ReleasePtr( win );
@@ -948,10 +956,7 @@ ULONG WIN_SetStyle( HWND hwnd, ULONG set_bits, ULONG clear_bits )
         req->style  = style.styleNew;
         req->extra_offset = -1;
         if ((ok = !wine_server_call( req )))
-        {
             style.styleOld = reply->old_style;
-            win->dwStyle = style.styleNew;
-        }
     }
     SERVER_END_REQ;
 
@@ -1158,7 +1163,7 @@ LRESULT WIN_DestroyWindow( HWND hwnd )
     /* free resources associated with the window */
 
     if (!(wndPtr = WIN_GetPtr( hwnd )) || wndPtr == WND_OTHER_PROCESS) return 0;
-    if ((wndPtr->dwStyle & (WS_CHILD | WS_POPUP)) != WS_CHILD)
+    if ((wndPtr->shared->style & (WS_CHILD | WS_POPUP)) != WS_CHILD)
         menu = (HMENU)wndPtr->wIDmenu;
     sys_menu = wndPtr->hSysMenu;
     free_dce( wndPtr->dce, hwnd );
@@ -1243,7 +1248,7 @@ void destroy_thread_windows(void)
         free_list = win->obj.handle;
         TRACE( "destroying %p\n", win->obj.handle );
 
-        if ((win->dwStyle & (WS_CHILD | WS_POPUP)) != WS_CHILD && win->wIDmenu)
+        if ((win->shared->style & (WS_CHILD | WS_POPUP)) != WS_CHILD && win->wIDmenu)
             DestroyMenu( UlongToHandle(win->wIDmenu) );
         if (win->hSysMenu) DestroyMenu( win->hSysMenu );
         if (win->surface)
@@ -1648,7 +1653,6 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
     wndPtr->tid            = GetCurrentThreadId();
     wndPtr->hInstance      = cs->hInstance;
     wndPtr->text           = NULL;
-    wndPtr->dwStyle        = style;
     wndPtr->dwExStyle      = ex_style;
     wndPtr->wIDmenu        = 0;
     wndPtr->helpContext    = 0;
@@ -1663,7 +1667,7 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
     wndPtr->max_pos.x = wndPtr->max_pos.y = -1;
     SetRect( &wndPtr->normal_rect, cs->x, cs->y, cs->x + cs->cx, cs->y + cs->cy );
 
-    if (wndPtr->dwStyle & WS_SYSMENU) SetSystemMenu( hwnd, 0 );
+    if (style & WS_SYSMENU) SetSystemMenu( hwnd, 0 );
 
     /* call the WH_CBT hook */
 
@@ -1678,33 +1682,26 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
         return 0;
     }
 
-    /*
-     * Correct the window styles.
-     *
-     * It affects only the style loaded into the WIN structure.
-     */
-
-    if ((wndPtr->dwStyle & (WS_CHILD | WS_POPUP)) != WS_CHILD)
+    /* correct the window styles */
+    if ((style & (WS_CHILD | WS_POPUP)) != WS_CHILD)
     {
-        wndPtr->dwStyle |= WS_CLIPSIBLINGS;
-        if (!(wndPtr->dwStyle & WS_POPUP))
-            wndPtr->dwStyle |= WS_CAPTION;
+        style |= WS_CLIPSIBLINGS;
+        if (!(style & WS_POPUP)) style |= WS_CAPTION;
     }
 
     wndPtr->dwExStyle = cs->dwExStyle;
     /* WS_EX_WINDOWEDGE depends on some other styles */
-    if ((wndPtr->dwStyle & (WS_DLGFRAME | WS_THICKFRAME)) &&
-            !(wndPtr->dwStyle & (WS_CHILD | WS_POPUP)))
+    if ((style & (WS_DLGFRAME | WS_THICKFRAME)) && !(style & (WS_CHILD | WS_POPUP)))
         wndPtr->dwExStyle |= WS_EX_WINDOWEDGE;
 
-    if (!(wndPtr->dwStyle & (WS_CHILD | WS_POPUP)))
+    if (!(style & (WS_CHILD | WS_POPUP)))
         wndPtr->flags |= WIN_NEED_SIZE;
 
     SERVER_START_REQ( set_window_info )
     {
         req->handle    = wine_server_user_handle( hwnd );
         req->flags     = SET_WIN_STYLE | SET_WIN_EXSTYLE | SET_WIN_INSTANCE | SET_WIN_UNICODE;
-        req->style     = wndPtr->dwStyle;
+        req->style     = style;
         req->ex_style  = wndPtr->dwExStyle;
         req->instance  = wine_server_client_ptr( wndPtr->hInstance );
         req->is_unicode = (wndPtr->flags & WIN_ISUNICODE) != 0;
@@ -1715,7 +1712,7 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
 
     /* Set the window menu */
 
-    if ((wndPtr->dwStyle & (WS_CHILD | WS_POPUP)) != WS_CHILD)
+    if ((style & (WS_CHILD | WS_POPUP)) != WS_CHILD)
     {
         if (cs->hMenu)
         {
@@ -2552,7 +2549,7 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
     switch(offset)
     {
     case GWLP_USERDATA:  retvalue = wndPtr->userdata; break;
-    case GWL_STYLE:      retvalue = wndPtr->dwStyle; break;
+    case GWL_STYLE:      retvalue = wndPtr->shared->style; break;
     case GWL_EXSTYLE:    retvalue = wndPtr->dwExStyle; break;
     case GWLP_ID:        retvalue = wndPtr->wIDmenu; break;
     case GWLP_HINSTANCE: retvalue = (ULONG_PTR)wndPtr->hInstance; break;
@@ -2629,7 +2626,7 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
     switch( offset )
     {
     case GWL_STYLE:
-        style.styleOld = wndPtr->dwStyle;
+        style.styleOld = wndPtr->shared->style;
         style.styleNew = newval;
         WIN_ReleasePtr( wndPtr );
         SendMessageW( hwnd, WM_STYLECHANGING, GWL_STYLE, (LPARAM)&style );
@@ -2638,7 +2635,7 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
         /* WS_CLIPSIBLINGS can't be reset on top-level windows */
         if (wndPtr->parent == GetDesktopWindow()) newval |= WS_CLIPSIBLINGS;
         /* WS_MINIMIZE can't be reset */
-        if (wndPtr->dwStyle & WS_MINIMIZE) newval |= WS_MINIMIZE;
+        if (wndPtr->shared->style & WS_MINIMIZE) newval |= WS_MINIMIZE;
         break;
     case GWL_EXSTYLE:
         style.styleOld = wndPtr->dwExStyle;
@@ -2648,7 +2645,7 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
         if (!(wndPtr = WIN_GetPtr( hwnd )) || wndPtr == WND_OTHER_PROCESS) return 0;
         /* WS_EX_TOPMOST can only be changed through SetWindowPos */
         newval = (style.styleNew & ~WS_EX_TOPMOST) | (wndPtr->dwExStyle & WS_EX_TOPMOST);
-        newval = fix_exstyle(wndPtr->dwStyle, newval);
+        newval = fix_exstyle(wndPtr->shared->style, newval);
         break;
     case GWLP_HWNDPARENT:
         if (wndPtr->parent == GetDesktopWindow())
@@ -2752,8 +2749,7 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
             switch(offset)
             {
             case GWL_STYLE:
-                wndPtr->dwStyle = newval;
-                wndPtr->dwExStyle = fix_exstyle(wndPtr->dwStyle, wndPtr->dwExStyle);
+                wndPtr->dwExStyle = fix_exstyle(wndPtr->shared->style, wndPtr->dwExStyle);
                 retval = reply->old_style;
                 break;
             case GWL_EXSTYLE:
@@ -2786,7 +2782,7 @@ LONG_PTR WIN_SetWindowLong( HWND hwnd, INT offset, UINT size, LONG_PTR newval, B
     if ((offset == GWL_STYLE && ((style.styleOld ^ style.styleNew) & WS_VISIBLE)) ||
         (offset == GWL_EXSTYLE && ((style.styleOld ^ style.styleNew) & WS_EX_LAYERED)))
     {
-        made_visible = (wndPtr->dwStyle & WS_VISIBLE) != 0;
+        made_visible = (wndPtr->shared->style & WS_VISIBLE) != 0;
         invalidate_dce( wndPtr, NULL );
     }
     WIN_ReleasePtr( wndPtr );
@@ -3234,8 +3230,8 @@ HWND WINAPI GetParent( HWND hwnd )
     }
     else
     {
-        if (wndPtr->dwStyle & WS_POPUP) retvalue = wndPtr->owner;
-        else if (wndPtr->dwStyle & WS_CHILD) retvalue = wndPtr->parent;
+        if (wndPtr->shared->style & WS_POPUP) retvalue = wndPtr->owner;
+        else if (wndPtr->shared->style & WS_CHILD) retvalue = wndPtr->parent;
         WIN_ReleasePtr( wndPtr );
     }
     return retvalue;

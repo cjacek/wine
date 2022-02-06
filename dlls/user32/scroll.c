@@ -208,7 +208,7 @@ static BOOL SCROLL_GetScrollBarRect( HWND hwnd, INT nBar, RECT *lprect,
         WIN_GetRectangles( hwnd, COORDS_WINDOW, NULL, lprect );
         lprect->top = lprect->bottom;
         lprect->bottom += GetSystemMetrics(SM_CYHSCROLL);
-	if(wndPtr->dwStyle & WS_VSCROLL)
+	if(wndPtr->shared->style & WS_VSCROLL)
 	  lprect->right++;
         vertical = FALSE;
 	break;
@@ -225,14 +225,14 @@ static BOOL SCROLL_GetScrollBarRect( HWND hwnd, INT nBar, RECT *lprect,
             lprect->left = lprect->right;
             lprect->right += GetSystemMetrics(SM_CXVSCROLL);
         }
-	if(wndPtr->dwStyle & WS_HSCROLL)
+	if(wndPtr->shared->style & WS_HSCROLL)
 	  lprect->bottom++;
         vertical = TRUE;
 	break;
 
       case SB_CTL:
 	GetClientRect( hwnd, lprect );
-        vertical = ((wndPtr->dwStyle & SBS_VERT) != 0);
+        vertical = ((wndPtr->shared->style & SBS_VERT) != 0);
 	break;
 
     default:
