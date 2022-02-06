@@ -50,9 +50,6 @@ struct request_max_size
     int pad[16];
 };
 
-#define FIRST_USER_HANDLE 0x0020
-#define LAST_USER_HANDLE  0xffef
-
 
 
 typedef union
@@ -6270,7 +6267,7 @@ union generic_reply
 
 /* ### protocol_version begin ### */
 
-#define SERVER_PROTOCOL_VERSION 745
+#define SERVER_PROTOCOL_VERSION 746
 
 /* ### protocol_version end ### */
 

@@ -29,6 +29,8 @@ static USER_HANDLE_ENTRY *handles;
 static USER_HANDLE_ENTRY *freelist;
 static struct user_session_info *session_info;
 
+#define LAST_USER_HANDLE  0xffef  /* last possible value for low word of user handle */
+
 static USER_HANDLE_ENTRY *handle_to_entry( user_handle_t handle )
 {
     unsigned short generation;
@@ -64,7 +66,7 @@ void init_session_shared_data( void *ptr )
 {
     session_info = ptr;
     handles = (void *)(session_info + 1);
-    atomic_store_ulong( &session_info->nb_handles, FIRST_USER_HANDLE );
+    atomic_store_ulong( &session_info->nb_handles, 0x20 ); /* reserve some handles values */
 }
 
 /* allocate a user handle for a given object */

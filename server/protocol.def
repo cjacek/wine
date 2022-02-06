@@ -66,9 +66,6 @@ struct request_max_size
     int pad[16]; /* the max request size is 16 ints */
 };
 
-#define FIRST_USER_HANDLE 0x0020  /* first possible value for low word of user handle */
-#define LAST_USER_HANDLE  0xffef  /* last possible value for low word of user handle */
-
 
 /* debug event data */
 typedef union
