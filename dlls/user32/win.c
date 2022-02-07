@@ -2444,6 +2444,43 @@ UINT WINAPI GetDpiForWindow( HWND hwnd )
 }
 
 
+static LONG_PTR get_window_long( HWND hwnd, INT offset, UINT size )
+{
+    const volatile struct window_shared *win;
+    LONG_PTR ret;
+
+    if ((win = get_user_shared_ptr( hwnd, NTUSER_OBJ_WINDOW )))
+    {
+        switch (offset)
+        {
+        case GWL_STYLE:
+            ret = win->style;
+            break;
+        case GWL_EXSTYLE:
+            ret = win->ex_style;
+            break;
+        case GWLP_USERDATA:
+            ret = win->user_data;
+            break;
+        case GWLP_ID:
+            ret = win->id;
+            break;
+        case GWLP_HINSTANCE:
+            ret = win->instance;
+            break;
+        default:
+            SetLastError( ERROR_INVALID_INDEX );
+            return 0;
+        }
+
+        /* make sure that window was not destroyed and ret contains valid data */
+        if (get_user_shared_ptr( hwnd, NTUSER_OBJ_WINDOW )) return ret;
+    }
+    SetLastError( ERROR_INVALID_WINDOW_HANDLE );
+    return 0;
+}
+
+
 /**********************************************************************
  *	     WIN_GetWindowLong
  *
@@ -2461,6 +2498,8 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
         return (ULONG_PTR)parent;
     }
 
+    if (offset < 0 && offset != GWLP_WNDPROC) return get_window_long( hwnd, offset, size );
+
     if (!(wndPtr = WIN_GetPtr( hwnd )))
     {
         SetLastError( ERROR_INVALID_WINDOW_HANDLE );
@@ -2471,16 +2510,6 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
     {
         switch (offset)
         {
-        case GWL_STYLE:
-            retvalue = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN; /* message parent is not visible */
-            if (WIN_GetFullHandle( hwnd ) == GetDesktopWindow())
-                retvalue |= WS_VISIBLE;
-            return retvalue;
-        case GWL_EXSTYLE:
-        case GWLP_USERDATA:
-        case GWLP_ID:
-        case GWLP_HINSTANCE:
-            return 0;
         case GWLP_WNDPROC:
             SetLastError( ERROR_ACCESS_DENIED );
             return 0;
@@ -2504,18 +2533,8 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
             req->extra_size = (offset >= 0) ? size : 0;
             if (!wine_server_call_err( req ))
             {
-                switch(offset)
-                {
-                case GWL_STYLE:      retvalue = reply->old_style; break;
-                case GWL_EXSTYLE:    retvalue = reply->old_ex_style; break;
-                case GWLP_ID:        retvalue = reply->old_id; break;
-                case GWLP_HINSTANCE: retvalue = (ULONG_PTR)wine_server_get_ptr( reply->old_instance ); break;
-                case GWLP_USERDATA:  retvalue = reply->old_user_data; break;
-                default:
-                    if (offset >= 0) retvalue = get_win_data( &reply->old_extra_value, size );
-                    else SetLastError( ERROR_INVALID_INDEX );
-                    break;
-                }
+                if (offset >= 0) retvalue = get_win_data( &reply->old_extra_value, size );
+                else SetLastError( ERROR_INVALID_INDEX );
             }
         }
         SERVER_END_REQ;
@@ -2544,11 +2563,6 @@ static LONG_PTR WIN_GetWindowLong( HWND hwnd, INT offset, UINT size, BOOL unicod
 
     switch(offset)
     {
-    case GWLP_USERDATA:  retvalue = wndPtr->shared->user_data; break;
-    case GWL_STYLE:      retvalue = wndPtr->shared->style; break;
-    case GWL_EXSTYLE:    retvalue = wndPtr->shared->ex_style; break;
-    case GWLP_ID:        retvalue = wndPtr->shared->id; break;
-    case GWLP_HINSTANCE: retvalue = wndPtr->shared->instance; break;
     case GWLP_WNDPROC:
         /* This looks like a hack only for the edit control (see tests). This makes these controls
          * more tolerant to A/W mismatches. The lack of W->A->W conversion for such a mismatch suggests
