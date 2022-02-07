@@ -2908,7 +2908,6 @@ static void dump_set_window_info_request( const struct set_window_info_request *
     fprintf( stderr, ", handle=%08x", req->handle );
     fprintf( stderr, ", style=%08x", req->style );
     fprintf( stderr, ", ex_style=%08x", req->ex_style );
-    fprintf( stderr, ", id=%08x", req->id );
     dump_uint64( ", instance=", &req->instance );
     dump_uint64( ", user_data=", &req->user_data );
     fprintf( stderr, ", extra_offset=%d", req->extra_offset );

@@ -1480,7 +1480,6 @@ C_ASSERT( FIELD_OFFSET(struct set_window_info_request, is_unicode) == 14 );
 C_ASSERT( FIELD_OFFSET(struct set_window_info_request, handle) == 16 );
 C_ASSERT( FIELD_OFFSET(struct set_window_info_request, style) == 20 );
 C_ASSERT( FIELD_OFFSET(struct set_window_info_request, ex_style) == 24 );
-C_ASSERT( FIELD_OFFSET(struct set_window_info_request, id) == 28 );
 C_ASSERT( FIELD_OFFSET(struct set_window_info_request, instance) == 32 );
 C_ASSERT( FIELD_OFFSET(struct set_window_info_request, user_data) == 40 );
 C_ASSERT( FIELD_OFFSET(struct set_window_info_request, extra_offset) == 48 );

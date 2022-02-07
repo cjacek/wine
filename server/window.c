@@ -73,7 +73,7 @@ struct window
     rectangle_t      client_rect;     /* client rectangle (relative to parent client area) */
     struct region   *win_region;      /* region for shaped windows (relative to window rect) */
     struct region   *update_region;   /* update region (relative to window rect) */
-    unsigned int     id;              /* window id */
+    lparam_t         id;              /* window id */
     mod_handle_t     instance;        /* creator instance */
     unsigned int     is_unicode : 1;  /* ANSI or unicode */
     unsigned int     is_linked : 1;   /* is it linked into the parent z-order list? */
@@ -2253,7 +2253,7 @@ DECL_HANDLER(set_window_info)
                                 (req->ex_style & ~WS_EX_TOPMOST) | (win->shared->ex_style & WS_EX_TOPMOST) );
         if (!(win->shared->ex_style & WS_EX_LAYERED)) win->is_layered = 0;
     }
-    if (req->flags & SET_WIN_ID) win->id = req->id;
+    if (req->flags & SET_WIN_ID) win->id = req->extra_value;
     if (req->flags & SET_WIN_INSTANCE) win->instance = req->instance;
     if (req->flags & SET_WIN_UNICODE) win->is_unicode = req->is_unicode;
     if (req->flags & SET_WIN_USERDATA)

@@ -2301,12 +2301,11 @@ enum message_type
     user_handle_t  handle;        /* handle to the window */
     unsigned int   style;         /* window style */
     unsigned int   ex_style;      /* window extended style */
-    unsigned int   id;            /* window id */
     mod_handle_t   instance;      /* creator instance */
     lparam_t       user_data;     /* user-specific data */
     int            extra_offset;  /* offset to set in extra bytes */
     data_size_t    extra_size;    /* size to set in extra bytes */
-    lparam_t       extra_value;   /* value to set in extra bytes */
+    lparam_t       extra_value;   /* value to set in extra bytes or window id */
 @REPLY
     unsigned int   old_style;     /* old window style */
     unsigned int   old_ex_style;  /* old window extended style */

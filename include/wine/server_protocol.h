@@ -3110,7 +3110,7 @@ struct set_window_info_request
     user_handle_t  handle;
     unsigned int   style;
     unsigned int   ex_style;
-    unsigned int   id;
+    char __pad_28[4];
     mod_handle_t   instance;
     lparam_t       user_data;
     int            extra_offset;
@@ -6267,7 +6267,7 @@ union generic_reply
 
 /* ### protocol_version begin ### */
 
-#define SERVER_PROTOCOL_VERSION 746
+#define SERVER_PROTOCOL_VERSION 747
 
 /* ### protocol_version end ### */
 
